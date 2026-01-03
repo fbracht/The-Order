@@ -3,6 +3,7 @@ import { Button } from '../components/Button';
 import { motion } from 'framer-motion';
 import { estimateTotalComparisons } from '../utils/rankingEngine';
 import { sanitizeString, MAX_ITEM_LENGTH, MAX_LIST_SIZE } from '../utils/security';
+import { getRandomPreset, PRESETS } from '../utils/presets';
 
 interface InputScreenProps {
   onStart: (items: string[]) => void;
@@ -47,18 +48,21 @@ export const InputScreen: React.FC<InputScreenProps> = ({ onStart, initialValue 
     onStart(uniqueItems);
   };
 
-  const handleDevFill = () => {
-    setText(`Arcs
-Root
-Oath
-Pax Pamir
-John Company
-Molly House`);
+  const handleSurpriseMe = () => {
+    const newItems = getRandomPreset(text);
+    setText(newItems.join('\n'));
     setError(null);
   };
 
   const lineCount = text.split('\n').filter(l => l.trim().length > 0).length;
   const isValid = lineCount >= 2;
+  
+  // Visibility Logic for Surprise Me button
+  // Visible if:
+  // 1. Current list has fewer than 3 items (0, 1, or 2)
+  // 2. OR Current list is exactly equal to one of the presets (user hasn't edited it yet)
+  const isPreset = PRESETS.some(p => p.join('\n') === text.trim());
+  const showSurpriseButton = lineCount < 3 || isPreset;
   
   // Time Estimation Logic
   const estimatedComparisons = estimateTotalComparisons(lineCount);
@@ -120,14 +124,16 @@ Molly House`);
               spellCheck={false}
             />
             
-            {/* Dev Helper Button */}
-            <button
-              onClick={handleDevFill}
-              className="absolute bottom-4 right-4 z-20 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-200 hover:border-red-300 text-xs font-bold rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 shadow-sm"
-              title="Fill preset list"
-            >
-              DEV SET
-            </button>
+            {/* Surprise Me Button */}
+            {showSurpriseButton && (
+              <button
+                onClick={handleSurpriseMe}
+                className="absolute bottom-4 right-4 z-20 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-600 hover:text-amber-700 border border-amber-200 hover:border-amber-300 text-xs font-bold rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 shadow-sm"
+                title="Load a random list"
+              >
+                Surprise Me
+              </button>
+            )}
           </div>
           
           {/* Error Message Display */}
