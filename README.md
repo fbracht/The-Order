@@ -1,6 +1,6 @@
 # The Order
 
-**The Order** is a premium ranking tool that uses transitive inference (Merge Sort logic) to help users prioritize lists with elegance and efficiency. Unlike a standard drag-and-drop list, this app forces the user to make binary choices ("A vs B"), drastically simplifying the cognitive load of ranking large sets.
+**The Order** is a ranking tool that uses transitive inference (Merge Sort logic) to help users rank items with elegance, efficiency, and a bit of fun. Unlike a standard drag-and-drop list, this app forces the user to make binary choices ("A vs B") along the way, drastically simplifying the cognitive load of ranking large sets.
 
 ## 🧠 Project Philosophy & Motivation
 
@@ -8,13 +8,13 @@ The original vision for this project was to create a ranking tool that feels les
 
 ### Core Motivations
 1.  **Efficiency via Inference:** If a user prefers A > B and B > C, the app should automatically know that A > C. It uses a directed graph to track these relationships, minimizing the number of questions asked.
-2.  **Aesthetics First:** The app relies on a "Swiss Design" aesthetic—clean typography (Inter), high contrast, ample whitespace, and subtle motion. It should feel native and polished on both mobile and desktop.
+2.  **Aesthetics First:** The app relies on a "Swiss Design" aesthetic—clean typography, high contrast, ample whitespace, and subtle motion. It should feel native and polished on both mobile and desktop.
 3.  **The "Receipt" Payoff:** The end result isn't just a list; it is presented as a physical, perforated receipt that can be customized and screenshot/shared.
 
 ### Specific Design Decisions
-*   **The "Done" State:** When the ranking finishes, we deliberately avoid an immediate jump to the results. Instead, the comparison cards transform into a Checkmark Glyph (✅) for exactly **0.8 seconds**. This provides a moment of satisfaction and closure before the data is revealed.
+*   **The "Done" State:** When the ranking finishes, we deliberately avoid an immediate jump to the results. Instead, the comparison cards transform into a Checkmark Glyph for exactly **0.8 seconds** while the progress bar animates to the end. This provides a moment of satisfaction and closure before the data is revealed.
 *   **"Surprise Me" Logic:** To reduce clutter, the "Surprise Me" button (which loads presets like Beatles Albums or Ice Cream flavors) **only** appears if the input list is empty or matches an existing preset. If the user is typing their own list, this button fades away to avoid distraction.
-*   **The "Take Me Back" Pattern:** The navigation allows for a temporary "Undo" state. If the user accidentally navigates away during a ranking session, they have a brief window to return to their previous state.
+*   **The "Take Me Back" Pattern:** The navigation allows for a temporary "Undo" state. If the user accidentally navigates away during a ranking session, they have a brief window to return to their previous state. 
 
 ---
 
