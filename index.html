@@ -6,9 +6,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>The Order</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            background: '#F5F5F7', // Keep a light gray background as base, or switch to pure white/black based on design
+            foreground: '#000000',
+            primary: '#000000',
+            secondary: '#F5F5F7',
+          }
+        }
+      }
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <style>
     html,
     body {
@@ -22,9 +40,10 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #F5F5F7;
-      color: #1D1D1F;
+      /* Light gray background from reference */
+      color: #000000;
       position: fixed;
       /* Lock scroll on iOS */
     }
@@ -86,7 +105,7 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/The-Order/assets/index-Cb19xo7y.js"></script>
+  <script type="module" crossorigin src="/The-Order/assets/index-V-2OYrlH.js"></script>
 </head>
 
 <body>
