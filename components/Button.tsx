@@ -1,37 +1,63 @@
 import React from 'react';
+import { SquircleContainer } from './SquircleContainer';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost';
   fullWidth?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({ 
-  children, 
-  variant = 'primary', 
-  fullWidth = false, 
+export const Button: React.FC<ButtonProps> = ({
+  children,
+  variant = 'primary',
+  fullWidth = false,
   className = '',
-  ...props 
+  ...props
 }) => {
-  // Changed rounded-lg to rounded-2xl for consistency
-  const baseStyles = "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
-  
-  const variants = {
-    primary: "bg-[#1D1D1F] text-white hover:bg-[#333333] focus:ring-gray-900 shadow-sm hover:shadow-md",
-    secondary: "bg-white text-[#1D1D1F] border border-gray-200 hover:bg-gray-50 hover:border-gray-300 focus:ring-gray-200 shadow-sm",
-    ghost: "text-gray-500 hover:text-[#1D1D1F] hover:bg-gray-100"
+  // Base button Reset
+  const baseButtonStyles = "inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed group relative bg-transparent border-0 p-0";
+
+  // Content styling (Typography, Padding)
+  // Note: Padding is applied inside the squircle container
+  const contentStyles = "px-8 py-4 text-base font-bold uppercase tracking-wide flex items-center justify-center w-full h-full relative z-10";
+
+  // Variant Mappings
+  const variantConfig = {
+    primary: {
+      text: "text-white",
+      bg: "text-black group-hover:text-gray-900 group-active:scale-95"
+      // Using text- classes to control currentColor fill of the squircle
+    },
+    secondary: {
+      text: "text-black",
+      bg: "text-gray-100 group-hover:text-gray-200 group-active:scale-95"
+    },
+    ghost: {
+      text: "text-gray-500 group-hover:text-black",
+      bg: "text-transparent group-hover:text-gray-100/50"
+    }
   };
 
+  const config = variantConfig[variant];
+
   return (
-    <button 
+    <button
       className={`
-        ${baseStyles} 
-        ${variants[variant]} 
+        ${baseButtonStyles} 
         ${fullWidth ? 'w-full' : ''} 
         ${className}
       `}
       {...props}
     >
-      {children}
+      <SquircleContainer
+        className="w-full h-full"
+        bgClassName={`${config.bg} transition-all duration-200 ease-out`}
+        cornerRadius={24} // Slightly rounder than a pure pill, but squircle
+      // No explicit backgroundColor -> uses currentColor from bgClassName
+      >
+        <span className={`${contentStyles} ${config.text}`}>
+          {children}
+        </span>
+      </SquircleContainer>
     </button>
   );
 };

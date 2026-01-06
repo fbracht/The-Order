@@ -90,7 +90,7 @@ function App() {
     if (state.status === 'COMPARING') {
       if (!window.confirm("Start a new set? Current progress will be lost.")) return;
     }
-    
+
     // Hard reset
     setState({
       status: 'INPUT',
@@ -107,10 +107,10 @@ function App() {
     const itemsToRank = state.items.length > 0 ? state.items : finalList;
 
     setState({
-        status: 'COMPARING',
-        // Always shuffle on restart to provide a fresh comparison path
-        items: shuffle(itemsToRank), 
-        edges: []
+      status: 'COMPARING',
+      // Always shuffle on restart to provide a fresh comparison path
+      items: shuffle(itemsToRank),
+      edges: []
     });
     setShowUndoNav(false);
     setPreviousState(null);
@@ -142,11 +142,12 @@ function App() {
 
   return (
     <div className="h-[100dvh] w-full overflow-hidden bg-[#F5F5F7] font-sans antialiased text-[#1D1D1F]">
-      <Navbar 
+      <Navbar
         onLogoClick={handleLogoClick}
         isLogoClickable={state.status !== 'INPUT'}
         showUndo={showUndoNav}
         onUndo={handleUndoNav}
+        inverted={state.status === 'COMPARING'}
       />
       {/* 
         Container for screens. 
@@ -156,15 +157,15 @@ function App() {
       <div className="h-full w-full">
         <AnimatePresence mode="wait">
           {state.status === 'INPUT' && (
-            <InputScreen 
-              key="input" 
-              onStart={handleStart} 
-              initialValue={state.items} 
+            <InputScreen
+              key="input"
+              onStart={handleStart}
+              initialValue={state.items}
             />
           )}
-          
+
           {state.status === 'COMPARING' && (
-            <ComparisonScreen 
+            <ComparisonScreen
               key="comparing"
               items={state.items}
               edges={state.edges}
@@ -172,9 +173,9 @@ function App() {
               onComplete={handleComplete}
             />
           )}
-          
+
           {state.status === 'RESULTS' && (
-            <ResultScreen 
+            <ResultScreen
               key="results"
               items={finalList.length > 0 ? finalList : state.items}
               onReset={handleReset}

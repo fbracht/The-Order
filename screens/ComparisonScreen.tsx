@@ -46,43 +46,43 @@ function useRankingEngine(items: Item[], edges: [Item, Item][]) {
 
   // Initialize graph
   const graph = useRef(new Map<string, Set<string>>());
-  
+
   // Rebuild graph from edges
   const rebuildGraph = () => {
     const g = new Map<string, Set<string>>();
     // Helper to add edge
     const add = (w: string, l: string) => {
-        if (!g.has(w)) g.set(w, new Set());
-        g.get(w)!.add(l);
+      if (!g.has(w)) g.set(w, new Set());
+      g.get(w)!.add(l);
     };
     // Helper to check path
     const hasPath = (start: string, end: string, visited = new Set<string>()): boolean => {
-        if (start === end) return true;
-        if (visited.has(start)) return false;
-        visited.add(start);
-        const neighbors = g.get(start);
-        if (neighbors) {
-            for (const n of neighbors) {
-                if (hasPath(n, end, visited)) return true;
-            }
+      if (start === end) return true;
+      if (visited.has(start)) return false;
+      visited.add(start);
+      const neighbors = g.get(start);
+      if (neighbors) {
+        for (const n of neighbors) {
+          if (hasPath(n, end, visited)) return true;
         }
-        return false;
+      }
+      return false;
     };
-    
+
     // Create a graph object compatible with our engine
     return {
-        addEdge: add,
-        hasPath: (s: string, e: string) => hasPath(s, e),
-        // internal map access if needed, but the interface handles it
+      addEdge: add,
+      hasPath: (s: string, e: string) => hasPath(s, e),
+      // internal map access if needed, but the interface handles it
     };
   };
 
   // Initialize or step the generator
   const nextStep = useCallback(async (lastDecision?: 'LEFT' | 'RIGHT') => {
     if (!generatorRef.current) return;
-    
+
     const { value, done } = await generatorRef.current.next(lastDecision as any);
-    
+
     if (done) {
       setSortedList(value as Item[]);
       setCurrentPair(null);
@@ -97,30 +97,30 @@ function useRankingEngine(items: Item[], edges: [Item, Item][]) {
     const graphImpl = rebuildGraph();
     // 2. Hydrate graph with existing edges
     edges.forEach(([w, l]) => graphImpl.addEdge(w, l));
-    
+
     // 3. Start generator
     generatorRef.current = mergeSortGenerator(items, graphImpl as any);
-    
+
     // 4. Kickoff
     nextStep();
-    
+
     return () => {
       generatorRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   return { currentPair, sortedList, nextStep };
 }
 
-export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({ 
-  items, 
-  edges, 
-  onDecision, 
-  onComplete 
+export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
+  items,
+  edges,
+  onDecision,
+  onComplete
 }) => {
   const { currentPair, sortedList, nextStep } = useRankingEngine(items, edges);
-  
+
   // Device and Orientation detection
   const [isDesktop, setIsDesktop] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
@@ -135,20 +135,20 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
       const landscapeMatch = window.matchMedia('(orientation: landscape)');
       setIsLandscape(landscapeMatch.matches);
     };
-    
+
     // Initial check
     checkState();
-    
+
     // Listeners for changes
     window.addEventListener('resize', checkState);
     window.addEventListener('orientationchange', checkState);
-    
+
     return () => {
-        window.removeEventListener('resize', checkState);
-        window.removeEventListener('orientationchange', checkState);
+      window.removeEventListener('resize', checkState);
+      window.removeEventListener('orientationchange', checkState);
     };
   }, []);
-  
+
   // Handle completion delay
   useEffect(() => {
     if (sortedList) {
@@ -163,10 +163,10 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
   // Handle choice
   const handleChoice = (choice: 'LEFT' | 'RIGHT') => {
     if (!currentPair) return;
-    
+
     const winner = choice === 'LEFT' ? currentPair.left : currentPair.right;
     const loser = choice === 'LEFT' ? currentPair.right : currentPair.left;
-    
+
     onDecision(winner, loser); // Persist
     nextStep(choice); // Advance generator
   };
@@ -194,21 +194,21 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
     hintContent = "Keep choosing your favorites at each comparison. At the end, you'll get a ranking of everything.";
   } else if (step === 2) {
     if (isDesktop) {
-        hintKey = "step2-desktop";
-        hintContent = (
-            <span>
-                <strong className="font-bold text-gray-900">HINT:</strong> You can also make selections by pressing<br />
-                <KeyCap>1</KeyCap> and <KeyCap>2</KeyCap>, or <KeyCap><ArrowLeftIcon/></KeyCap> and <KeyCap><ArrowRightIcon/></KeyCap>.
-            </span>
-        );
+      hintKey = "step2-desktop";
+      hintContent = (
+        <span>
+          <strong className="font-bold text-gray-900">HINT:</strong> You can also make selections by pressing<br />
+          <KeyCap>1</KeyCap> and <KeyCap>2</KeyCap>, or <KeyCap><ArrowLeftIcon /></KeyCap> and <KeyCap><ArrowRightIcon /></KeyCap>.
+        </span>
+      );
     } else if (!isLandscape) {
-        // Only show the orientation hint if they are currently in portrait mode
-        hintKey = "step2-mobile-portrait";
-        hintContent = (
-            <span>
-                <strong className="font-bold text-gray-900">HINT:</strong> Try turning your screen horizontal. It's probably more comfortable for long sets!
-            </span>
-        );
+      // Only show the orientation hint if they are currently in portrait mode
+      hintKey = "step2-mobile-portrait";
+      hintContent = (
+        <span>
+          <strong className="font-bold text-gray-900">HINT:</strong> Try turning your screen horizontal. It's probably more comfortable for long sets!
+        </span>
+      );
     }
   }
 
@@ -217,12 +217,12 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
   const progressPercent = useMemo(() => {
     if (sortedList) return 100; // Force 100% when finished
     if (items.length < 2) return 0;
-    
+
     // 1. Build Adjacency List from current edges
     const adj = new Map<string, string[]>();
     for (const [w, l] of edges) {
-        if (!adj.has(w)) adj.set(w, []);
-        adj.get(w)!.push(l);
+      if (!adj.has(w)) adj.set(w, []);
+      adj.get(w)!.push(l);
     }
 
     // 2. Calculate reachability (Transitive Closure)
@@ -232,36 +232,36 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
 
     // Helper: Simple DFS/BFS to find all descendants
     const countReachable = (startNode: string): number => {
-        let count = 0;
-        const stack = [startNode];
-        const visited = new Set<string>();
-        visited.add(startNode);
+      let count = 0;
+      const stack = [startNode];
+      const visited = new Set<string>();
+      visited.add(startNode);
 
-        while (stack.length > 0) {
-            const current = stack.pop()!;
-            const neighbors = adj.get(current);
-            if (neighbors) {
-                for (const neighbor of neighbors) {
-                    if (!visited.has(neighbor)) {
-                        visited.add(neighbor);
-                        stack.push(neighbor);
-                        count++;
-                    }
-                }
+      while (stack.length > 0) {
+        const current = stack.pop()!;
+        const neighbors = adj.get(current);
+        if (neighbors) {
+          for (const neighbor of neighbors) {
+            if (!visited.has(neighbor)) {
+              visited.add(neighbor);
+              stack.push(neighbor);
+              count++;
             }
+          }
         }
-        return count;
+      }
+      return count;
     };
 
     // Run for every item
     for (const item of items) {
-        totalResolved += countReachable(item);
+      totalResolved += countReachable(item);
     }
 
     // 3. Calculate against total possible pairs
     // Total unique pairs in a set of N is N * (N - 1) / 2
     const totalPairs = (items.length * (items.length - 1)) / 2;
-    
+
     if (totalPairs === 0) return 0;
 
     // Cap at 95% until the final sorted list is actually returned by the engine
@@ -278,14 +278,16 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
   return (
     // Layout switches from flex-col (vertical) to flex-row (horizontal) based on orientation (landscape)
     <div className="fixed inset-0 w-full h-full flex flex-col landscape:flex-row bg-[#F5F5F7] overflow-hidden">
-      
-      {/* Top / Left Panel (Option A) */}
-      <div 
-        className={`relative flex-1 flex flex-col items-center justify-end pb-14 landscape:justify-center landscape:pb-0 ${isFinished ? '' : 'cursor-pointer group active:bg-gray-100'} transition-colors duration-200`}
+
+      {/* Top / Left Panel (Option A) - DARK MODE */}
+      <div
+        className={`relative flex-1 flex flex-col items-center justify-end pb-14 landscape:justify-center landscape:pb-0 
+        bg-black text-white
+        ${isFinished ? '' : 'cursor-pointer group active:opacity-95'} transition-all duration-200`}
         onClick={() => !isFinished && handleChoice('LEFT')}
       >
         <div className={`absolute inset-0 flex flex-col items-center justify-end pb-0 landscape:justify-center landscape:pb-0 pointer-events-none transition-opacity duration-500 ${isFinished ? 'opacity-0' : 'opacity-100'}`}>
-            <span className="text-[200px] font-bold text-gray-200/20 select-none group-hover:text-gray-200/40 transition-colors leading-none">1</span>
+          <span className="text-[120px] md:text-[240px] font-extrabold text-white/5 select-none leading-none tracking-tighter">1</span>
         </div>
         <AnimatePresence mode="popLayout">
           {currentPair ? (
@@ -296,11 +298,14 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="z-10 text-center px-8"
+              className="z-10 text-center px-8 w-full max-w-xl mx-auto"
             >
-              <h2 className="text-3xl md:text-5xl font-semibold text-[#1D1D1F] tracking-tight leading-tight">
+              <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
                 {currentPair.left}
               </h2>
+              <div className="mt-6 opacity-0 group-hover:opacity-60 transition-opacity text-sm font-bold uppercase tracking-widest hidden md:block">
+                Select Option A
+              </div>
             </motion.div>
           ) : isFinished ? (
             <motion.div
@@ -308,7 +313,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               initial={{ scale: 0.5, opacity: 0, rotate: -20 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="z-10 text-gray-400"
+              className="z-10 text-white/20"
             >
               <CheckIcon />
             </motion.div>
@@ -316,28 +321,32 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
         </AnimatePresence>
       </div>
 
-      {/* Divider / Progress Bar */}
-      {/* Divider is full width (horizontal) in portrait, and full height (vertical) in landscape */}
-      <div className="relative z-20 w-full h-1 landscape:w-1 landscape:h-full bg-gray-200/50 flex flex-col items-start justify-start">
-        <motion.div 
-          className="bg-gray-800/80 w-full md:w-full h-full"
-          initial={{ height: '0%', width: '0%' }}
-          animate={{ 
-            // In landscape (vertical divider), animate height. In portrait (horizontal divider), animate width.
-            height: isLandscape ? `${progressPercent}%` : '100%',
-            width: isLandscape ? '100%' : `${progressPercent}%`
-          }}
+      {/* Divider / Progress Bar - Now a floating pill */}
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center">
+        <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center shadow-2xl border-4 border-gray-100">
+          <span className="text-xl md:text-2xl font-extrabold text-black">VS</span>
+        </div>
+      </div>
+
+      {/* Progress Indicator - Minimal bottom bar */}
+      <div className="fixed bottom-0 left-0 right-0 h-2 bg-gray-200 z-50">
+        <motion.div
+          className="h-full bg-black"
+          initial={{ width: '0%' }}
+          animate={{ width: `${progressPercent}%` }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
         />
       </div>
 
-      {/* Bottom / Right Panel (Option B) */}
-      <div 
-        className={`relative flex-1 flex flex-col items-center justify-start pt-14 landscape:justify-center landscape:pt-0 ${isFinished ? '' : 'cursor-pointer group active:bg-gray-100'} transition-colors duration-200`}
+      {/* Bottom / Right Panel (Option B) - LIGHT MODE */}
+      <div
+        className={`relative flex-1 flex flex-col items-center justify-start pt-14 landscape:justify-center landscape:pt-0 
+        bg-white text-black
+        ${isFinished ? '' : 'cursor-pointer group active:bg-gray-50'} transition-all duration-200`}
         onClick={() => !isFinished && handleChoice('RIGHT')}
       >
         <div className={`absolute inset-0 flex flex-col items-center justify-start pt-0 landscape:justify-center landscape:pt-0 pointer-events-none transition-opacity duration-500 ${isFinished ? 'opacity-0' : 'opacity-100'}`}>
-            <span className="text-[200px] font-bold text-gray-200/20 select-none group-hover:text-gray-200/40 transition-colors leading-none">2</span>
+          <span className="text-[120px] md:text-[240px] font-extrabold text-black/5 select-none leading-none tracking-tighter">2</span>
         </div>
         <AnimatePresence mode="popLayout">
           {currentPair ? (
@@ -348,11 +357,14 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="z-10 text-center px-8"
+              className="z-10 text-center px-8 w-full max-w-xl mx-auto"
             >
-              <h2 className="text-3xl md:text-5xl font-semibold text-[#1D1D1F] tracking-tight leading-tight">
+              <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
                 {currentPair.right}
               </h2>
+              <div className="mt-6 opacity-0 group-hover:opacity-40 transition-opacity text-sm font-bold uppercase tracking-widest hidden md:block">
+                Select Option B
+              </div>
             </motion.div>
           ) : isFinished ? (
             <motion.div
@@ -360,7 +372,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               initial={{ scale: 0.5, opacity: 0, rotate: 20 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="z-10 text-gray-400"
+              className="z-10 text-black/20"
             >
               <CheckIcon />
             </motion.div>
@@ -369,7 +381,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
       </div>
 
       {/* Onboarding Info Panel */}
-      <div className="fixed bottom-6 md:bottom-8 left-0 right-0 flex justify-center px-4 pointer-events-none z-40">
+      <div className="fixed bottom-8 left-0 right-0 flex justify-center px-4 pointer-events-none z-40">
         <AnimatePresence mode="wait">
           {!isFinished && hintKey && hintContent && (
             <motion.div
@@ -378,9 +390,9 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_12px_32px_rgba(0,0,0,0.12)] rounded-3xl px-6 py-4 text-center pointer-events-auto max-w-lg"
+              className="bg-black/90 backdrop-blur-md shadow-2xl rounded-full px-6 py-3 text-center pointer-events-auto max-w-lg border border-white/10"
             >
-              <div className="text-sm font-medium text-[#1D1D1F] leading-relaxed">
+              <div className="text-sm font-bold text-white leading-relaxed">
                 {hintContent}
               </div>
             </motion.div>

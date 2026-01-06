@@ -148,7 +148,7 @@ export const PRESETS = [
     "Pyra",
     "Mythra",
     "Kazuya",
-    "Sora"
+    "Sora",
   ]
 ];
 

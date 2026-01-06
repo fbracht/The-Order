@@ -6,48 +6,98 @@ interface NavbarProps {
   isLogoClickable?: boolean;
   showUndo?: boolean;
   onUndo?: () => void;
+  inverted?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ 
-  onLogoClick, 
-  isLogoClickable = false, 
-  showUndo = false, 
-  onUndo 
+export const Navbar: React.FC<NavbarProps> = ({
+  onLogoClick,
+  isLogoClickable = false,
+  showUndo = false,
+  onUndo,
+  inverted = false
 }) => {
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4 pointer-events-none">
-      <nav className="pointer-events-auto w-full max-w-2xl h-14 bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_12px_32px_rgba(0,0,0,0.12)] rounded-full flex items-center justify-between px-6 transition-all duration-300">
-        <div 
+    <div className="fixed top-0 left-0 right-0 z-50 h-24 pointer-events-none">
+      {/* 
+        Centering Logic:
+        We want the SEPARATOR line to be exactly at the center of the screen.
+        The layout is: [Icon 48px] [Gap 16px] [Separator 2px] [Gap 16px] [Text ...]
+        
+        Distance from Left Edge to Center of Separator:
+        48 (Icon) + 16 (Gap) + 1 (Half Separator) = 65px.
+        
+        So we position the container at left-1/2 and translate it back by 65px.
+      */}
+      <div
+        className="absolute top-6 left-1/2 pointer-events-auto"
+        style={{ transform: 'translateX(-51%)' }}
+      >
+        <div
           onClick={isLogoClickable ? onLogoClick : undefined}
-          className={`flex items-center gap-3 transition-opacity ${isLogoClickable ? 'cursor-pointer hover:opacity-60 active:opacity-40' : ''}`}
+          className={`group flex items-center select-none ${isLogoClickable ? 'cursor-pointer' : ''}`}
           role={isLogoClickable ? "button" : undefined}
           aria-label={isLogoClickable ? "Return to input" : "The Order"}
         >
-          {/* Logo Icon (Abstract lines representing order) */}
-          <div className="w-5 h-5 flex flex-col justify-center gap-1 opacity-80">
-            <div className="w-full h-0.5 bg-[#1D1D1F] rounded-full"></div>
-            <div className="w-3/4 h-0.5 bg-[#1D1D1F] rounded-full"></div>
-            <div className="w-1/2 h-0.5 bg-[#1D1D1F] rounded-full"></div>
+          {/* 
+            Balanced Layout:
+            We use a fixed width for both left (icon) and right (text) sides to ensure
+            the separator (in the middle) is perfectly centered on the screen.
+            
+            Side Width: Adjusted to 100px for larger typography.
+          */}
+
+          {/* LEFT SIDE: ICON (Aligned Right) */}
+          <div className="w-[100px] flex justify-end pr-5">
+            <svg width="64" height="64" viewBox="0 0 80 80" fill="none" className="transform transition-transform group-hover:scale-105">
+              <path
+                d="M 40 5 
+                       C 65 5, 75 15, 75 40 
+                       C 75 65, 65 75, 40 75 
+                       C 15 75, 5 65, 5 40 
+                       C 5 15, 15 5, 40 5 
+                       Z"
+                fill={inverted ? "white" : "black"}
+                className="transition-colors duration-300"
+              />
+              <path d="M30 38 L40 24 L50 38 H46 V44 H34 V38 H30 Z" fill={inverted ? "black" : "white"} className="transition-colors duration-300" />
+              <path d="M30 42 L40 56 L50 42 H46 V36 H34 V36 H30 Z" fill={inverted ? "black" : "white"} className="transition-colors duration-300" />
+              <rect x="28" y="38" width="24" height="4" fill={inverted ? "white" : "black"} className="transition-colors duration-300" />
+            </svg>
           </div>
-          <span className="text-lg font-semibold tracking-tight text-[#1D1D1F]">The Order</span>
+
+          {/* CENTER: SEPARATOR */}
+          <div className="h-12 w-0.5 bg-black opacity-50 relative rounded-full"></div>
+
+          {/* RIGHT SIDE: TEXT (Aligned Left) */}
+          <div className="w-[100px] flex justify-start pl-5 text-black">
+            <div className="flex flex-col justify-center leading-none" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <span className="text-sm font-bold tracking-widest uppercase opacity-60 -mb-1" style={{ marginLeft: '1px' }}>The</span>
+              <span className="text-[27px] font-extrabold tracking-tight uppercase leading-[0.9]">Order</span>
+            </div>
+          </div>
+
         </div>
-        
-        <div className="flex items-center gap-4 h-full min-w-[80px] justify-end">
-          <AnimatePresence>
-            {showUndo && (
-              <motion.button
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10, transition: { duration: 0.5 } }}
-                onClick={onUndo}
-                className="text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                Take me back!
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
-      </nav>
+      </div>
+
+      {/* Undo Button - Absolute Right */}
+      <div className="absolute top-6 right-6 pointer-events-auto">
+        <AnimatePresence>
+          {showUndo && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              onClick={onUndo}
+              className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 14L4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
+              </svg>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
