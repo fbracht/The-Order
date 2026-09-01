@@ -54,8 +54,19 @@ export const InputScreen: React.FC<InputScreenProps> = ({ onStart, initialValue 
     setError(null);
   };
 
-  const lineCount = text.split('\n').filter(l => l.trim().length > 0).length;
-  const isValid = lineCount >= 2;
+  const lines = text.split('\n');
+  const lineCount = lines.filter(l => l.trim().length > 0).length;
+
+  // Check for lines exceeding MAX_ITEM_LENGTH
+  const hasLongLines = lines.some(line => line.trim().length > MAX_ITEM_LENGTH);
+  const isTooLarge = lineCount > MAX_LIST_SIZE;
+
+  // Check for duplicates (case-insensitive, trimmed)
+  const trimmedLines = lines.map(l => l.trim()).filter(l => l.length > 0);
+  const uniqueItems = new Set(trimmedLines.map(l => l.toLowerCase()));
+  const hasDuplicates = uniqueItems.size < trimmedLines.length;
+
+  const isValid = lineCount >= 2 && !hasLongLines && !isTooLarge && !hasDuplicates;
 
   // Visibility Logic for Surprise Me button
   // Visible if:
@@ -69,7 +80,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({ onStart, initialValue 
   const estimatedSeconds = estimatedComparisons * 2;
 
   // Only show estimate if it's 2 minutes (120 seconds) or more
-  const showTimeEstimate = estimatedSeconds >= 120;
+  const showTimeEstimate = estimatedSeconds >= 120 && !isTooLarge;
   const timeText = showTimeEstimate ? `${Math.floor(estimatedSeconds / 60)} min` : null;
 
   return (
@@ -111,7 +122,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({ onStart, initialValue 
                 if (error) setError(null);
               }}
               placeholder={`Avocado\nBanana\nCoconut\n...`}
-              className="relative w-full h-full p-8 bg-white rounded-[2rem] border-2 border-gray-100 shadow-xl text-2xl font-bold text-black placeholder:text-gray-200 focus:ring-4 focus:ring-black/5 focus:border-black/10 focus:outline-none resize-none leading-relaxed transition-all"
+              className={`relative w-full h-full p-8 bg-white rounded-[2rem] border-2 shadow-xl text-2xl font-bold text-black placeholder:text-gray-200 focus:ring-4 focus:ring-black/5 focus:border-black/10 focus:outline-none resize-none leading-relaxed transition-all ${hasLongLines || isTooLarge || hasDuplicates ? 'border-red-200 focus:border-red-300' : 'border-gray-100'}`}
               spellCheck={false}
             />
 
@@ -127,14 +138,17 @@ export const InputScreen: React.FC<InputScreenProps> = ({ onStart, initialValue 
             )}
           </div>
 
-          {/* Error Message */}
-          {error && (
+          {/* Validation Warnings */}
+          {(hasLongLines || isTooLarge || hasDuplicates || error) && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 text-white text-sm font-bold text-center bg-red-500 px-4 py-2 rounded-full shadow-lg"
             >
-              {error}
+              {isTooLarge ? `Please limit your list to ${MAX_LIST_SIZE} items.` :
+                hasLongLines ? "One or more lines exceed 100 characters." :
+                  hasDuplicates ? "Duplicate items detected." :
+                    error}
             </motion.div>
           )}
         </div>
@@ -142,9 +156,9 @@ export const InputScreen: React.FC<InputScreenProps> = ({ onStart, initialValue 
         {/* Footer section: Add margin top on desktop */}
         <div className="flex-none w-full max-w-xs mx-auto md:mt-8">
           <div className="flex justify-between items-end mb-2 px-1 h-5">
-            <span className={`text-xs font-medium tracking-wide uppercase ${lineCount > MAX_LIST_SIZE ? 'text-red-500' : 'text-gray-400'}`}>
+            <span className={`text-xs font-medium tracking-wide uppercase ${(isTooLarge || hasLongLines || hasDuplicates) ? 'text-red-500' : 'text-gray-400'}`}>
               {lineCount} {lineCount === 1 ? 'Item' : 'Items'}
-              {lineCount > MAX_LIST_SIZE && ` (Max ${MAX_LIST_SIZE})`}
+              {(isTooLarge || hasLongLines || hasDuplicates) && <span className="ml-1">⚠️</span>}
             </span>
             {timeText && !error && (
               <span className="text-xs text-gray-400 font-medium tracking-wide uppercase flex items-center gap-1.5">

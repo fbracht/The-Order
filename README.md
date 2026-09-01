@@ -9,7 +9,7 @@ The original vision for this project was to create a ranking tool that feels les
 ### Core Motivations
 1.  **Efficiency via Inference:** If a user prefers A > B and B > C, the app should automatically know that A > C. It uses a directed graph to track these relationships, minimizing the number of questions asked.
 2.  **Aesthetics First:** The app relies on a "Swiss Design" aesthetic—clean typography, high contrast, ample whitespace, and subtle motion. It should feel native and polished on both mobile and desktop.
-3.  **The "Receipt" Payoff:** The end result isn't just a list; it is presented as a physical, perforated receipt that can be customized and screenshot/shared.
+3.  **The "Receipt" Payoff:** The end result isn't just a list; it is presented as a physical, perforated receipt that can be customized and copied to the clipboard for easy sharing.
 
 ### Specific Design Decisions
 *   **The "Done" State:** When the ranking finishes, we deliberately avoid an immediate jump to the results. Instead, the comparison cards transform into a Checkmark Glyph for exactly **0.8 seconds** while the progress bar animates to the end. This provides a moment of satisfaction and closure before the data is revealed.
@@ -36,9 +36,9 @@ The app moves through three distinct phases:
 
 *Data Persistence:* State is saved to `localStorage` to prevent data loss on refresh.
 
-### 3. Screen Capture (`screens/ResultScreen.tsx`)
-We use `html2canvas` to generate shareable images.
-*   **Note:** The capture logic creates a temporary, off-screen DOM element with fixed dimensions (iPhone 14 Pro width) and a scale factor of 3 to ensure high-resolution, consistent exports regardless of the user's actual screen size.
+### 3. Sharing (`screens/ResultScreen.tsx`)
+We provide a "Copy to Clipboard" feature to share rankings.
+*   **Format:** The list is formatted with the title, date, and ranked items for clean text-based sharing.
 
 ---
 
@@ -48,7 +48,7 @@ We use `html2canvas` to generate shareable images.
 *   **`screens/`**:
     *   `InputScreen.tsx`: Text area input. Contains logic for the "Surprise Me" button and input validation/sanitization.
     *   `ComparisonScreen.tsx`: The binary choice UI. Handles keyboard shortcuts (1/2, Arrow Keys) and the "Checkmark" animation.
-    *   `ResultScreen.tsx`: The visual "receipt." Handles title editing and image generation.
+    *   `ResultScreen.tsx`: The visual "receipt." Handles title editing and clipboard sharing.
 *   **`utils/`**:
     *   `rankingEngine.ts`: The logic for sorting and graph traversal.
     *   `presets.ts`: Static lists used for the "Surprise Me" feature.
