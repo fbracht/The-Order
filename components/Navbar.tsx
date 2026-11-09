@@ -66,10 +66,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* CENTER: SEPARATOR */}
-          <div className="h-12 w-0.5 bg-black opacity-50 relative rounded-full"></div>
+          {/* While comparing in portrait the lockup sits on the black top panel, so it flips to white.
+              In landscape the seam runs through the separator and the wordmark stays on the white side. */}
+          <div className={`h-12 w-0.5 opacity-50 relative rounded-full transition-colors duration-300 bg-black ${inverted ? 'portrait:bg-white' : ''}`}></div>
 
           {/* RIGHT SIDE: TEXT (Aligned Left) */}
-          <div className="w-[100px] flex justify-start pl-5 text-black">
+          <div className={`w-[100px] flex justify-start pl-5 transition-colors duration-300 text-black ${inverted ? 'portrait:text-white' : ''}`}>
             <div className="flex flex-col justify-center leading-none" style={{ fontFamily: 'Outfit, sans-serif' }}>
               <span className="text-sm font-bold tracking-widest uppercase opacity-60 -mb-1" style={{ marginLeft: '1px' }}>The</span>
               <span className="text-[27px] font-extrabold tracking-tight uppercase leading-[0.9]">Order</span>

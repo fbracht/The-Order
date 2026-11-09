@@ -153,22 +153,20 @@ export const InputScreen: React.FC<InputScreenProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      // Use h-full to fill the 100dvh container from App.tsx
-      // pt-36 (increased from pt-24) pushes content down from the floating navbar on mobile
-      // pb-8 adds safe spacing at the bottom
-      // md:justify-center centers the content block vertically on desktop
-      className="h-full w-full flex flex-col pt-36 pb-8 px-4 sm:px-6 md:justify-center"
+      // The page itself never scrolls (body is fixed), so this screen scrolls
+      // internally whenever the viewport is too short for its content.
+      className="h-full w-full overflow-y-auto"
     >
-      {/* 
-        Inner wrapper:
-        Mobile: h-full (fills screen for flex distribution)
-        Desktop: h-auto (shrinks to fit content, centered by parent)
+      {/*
+        Inner wrapper: at least as tall as the viewport, so the list box can
+        grow into spare height. Top padding clears the floating navbar; it is
+        tighter on short viewports such as a phone held sideways.
       */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col h-full md:h-auto">
+      <div className="w-full max-w-2xl mx-auto flex flex-col min-h-full pt-36 md:pt-28 pb-8 px-4 sm:px-6 md:justify-center [@media(max-height:500px)]:pt-24">
 
         {/* Header */}
-        <header className="flex-none mb-8 md:mb-12 text-center">
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-black mb-6 uppercase">
+        <header className="flex-none mb-8 md:mb-10 text-center">
+          <h1 className="text-5xl md:text-7xl [@media(max-height:820px)]:md:text-6xl font-extrabold tracking-tight text-black mb-6 uppercase">
             Create<br />List
           </h1>
           <p className="text-gray-500 text-lg md:text-xl font-medium max-w-md mx-auto leading-relaxed">
@@ -179,7 +177,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
           </p>
         </header>
 
-        <div className="flex-none mx-auto mb-6 inline-flex self-center rounded-full bg-white p-1 shadow-sm border border-gray-100" role="tablist" aria-label="List type">
+        <div className="flex-none mx-auto mb-6 inline-flex self-center rounded-full bg-white p-1 shadow-xs border border-gray-100" role="tablist" aria-label="List type">
           <button
             type="button"
             role="tab"
@@ -201,8 +199,9 @@ export const InputScreen: React.FC<InputScreenProps> = ({
         </div>
 
         {/* Input Container */}
-        <div className="flex-1 min-h-0 w-full flex flex-col items-center mb-6 md:mb-0 md:flex-none">
-          <div className="w-full h-full md:h-96 relative group">
+        <div className="flex-1 w-full flex flex-col items-center mb-6 md:mb-0 md:max-h-96">
+          {/* Children are absolutely positioned so they fill this box at any height */}
+          <div className="w-full flex-1 min-h-44 relative group">
             {listType === 'TEXT' ? (
               <>
                 <textarea
@@ -212,7 +211,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                     if (error) setError(null);
                   }}
                   placeholder={`Avocado\nBanana\nCoconut\n...`}
-                  className={`relative w-full h-full p-8 bg-white rounded-[2rem] border-2 shadow-xl text-2xl font-bold text-black placeholder:text-gray-200 focus:ring-4 focus:ring-black/5 focus:border-black/10 focus:outline-none resize-none leading-relaxed transition-all ${hasLongLines || isTooLarge || hasDuplicates ? 'border-red-200 focus:border-red-300' : 'border-gray-100'}`}
+                  className={`absolute inset-0 w-full h-full p-8 bg-white rounded-[2rem] border-2 shadow-xl text-2xl font-bold text-black placeholder:text-gray-200 focus:ring-4 focus:ring-black/5 focus:border-black/10 focus:outline-none resize-none leading-relaxed transition-all ${hasLongLines || isTooLarge || hasDuplicates ? 'border-red-200 focus:border-red-300' : 'border-gray-100'}`}
                   spellCheck={false}
                 />
 
@@ -220,7 +219,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleSurpriseMe}
-                    className="absolute bottom-6 right-6 z-20 px-4 py-2 bg-black text-white hover:bg-gray-800 text-sm font-bold rounded-full transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 shadow-lg transform active:scale-95"
+                    className={`absolute bottom-6 right-6 z-20 px-4 py-2 bg-black text-white hover:bg-gray-800 text-sm font-bold rounded-full transition-all shadow-lg transform active:scale-95 ${lineCount === 0 || isPreset ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
                     title="Load a random list"
                   >
                     Surprise Me
@@ -240,7 +239,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                   setIsDragging(false);
                   addImages(event.dataTransfer.files);
                 }}
-                className={`h-full overflow-y-auto rounded-[2rem] border-2 bg-white p-5 shadow-xl transition-colors ${isDragging ? 'border-black bg-gray-50' : error ? 'border-red-200' : 'border-dashed border-gray-200'}`}
+                className={`absolute inset-0 overflow-y-auto rounded-[2rem] border-2 bg-white p-5 shadow-xl transition-colors ${isDragging ? 'border-black bg-gray-50' : error ? 'border-red-200' : 'border-dashed border-gray-200'}`}
               >
                 <input
                   ref={fileInputRef}
@@ -257,7 +256,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-full min-h-52 w-full rounded-2xl flex flex-col items-center justify-center text-center px-6 hover:bg-gray-50 transition-colors"
+                    className="h-full min-h-36 w-full rounded-2xl flex flex-col items-center justify-center text-center px-6 hover:bg-gray-50 transition-colors"
                   >
                     <svg className="w-12 h-12 mb-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5V18a2 2 0 002 2h14a2 2 0 002-2v-1.5M16 8l-4-4m0 0L8 8m4-4v12" />

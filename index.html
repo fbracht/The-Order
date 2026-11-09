@@ -3,107 +3,29 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>The Order</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Outfit', 'sans-serif'],
-          },
-          colors: {
-            background: '#F5F5F7', // Keep a light gray background as base, or switch to pure white/black based on design
-            foreground: '#000000',
-            primary: '#000000',
-            secondary: '#F5F5F7',
-          }
-        }
-      }
-    }
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Order: rank anything, two at a time</title>
+  <meta name="description"
+    content="Rank any list by choosing between two items at a time. The Order turns your picks into a complete ranking, with as few questions as possible." />
+  <meta name="theme-color" content="#F5F5F7" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="The Order" />
+  <meta property="og:title" content="The Order: rank anything, two at a time" />
+  <meta property="og:description"
+    content="Choose between two items at a time and get a complete ranking of your list." />
+  <meta property="og:url" content="https://fbracht.github.io/The-Order/" />
+  <meta property="og:image" content="https://fbracht.github.io/The-Order/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
-  <style>
-    html,
-    body {
-      height: 100%;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      overscroll-behavior: none;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    body {
-      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #F5F5F7;
-      /* Light gray background from reference */
-      color: #000000;
-      position: fixed;
-      /* Lock scroll on iOS */
-    }
-
-    /* Hide scrollbar for clean aesthetic */
-    ::-webkit-scrollbar {
-      width: 0px;
-      background: transparent;
-    }
-
-    @media print {
-      @page {
-        margin: 2cm;
-      }
-
-      body {
-        position: relative !important;
-        overflow: visible !important;
-        background-color: white !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-        height: auto !important;
-      }
-
-      .no-print {
-        display: none !important;
-      }
-
-      .print-content {
-        box-shadow: none !important;
-        border: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        max-width: none !important;
-        overflow: visible !important;
-      }
-
-      /* Ensure text is black for printing */
-      * {
-        color: #000000 !important;
-      }
-
-      /* Allow opacity differences for visual hierarchy if printer supports it */
-      .text-gray-400 {
-        color: #666666 !important;
-      }
-    }
-  </style>
-  <script type="importmap">
-{
-  "imports": {
-    "framer-motion": "https://esm.sh/framer-motion@^12.23.26",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "html2canvas": "https://esm.sh/html2canvas@1.4.1"
-  }
-}
-</script>
 </head>
 
 <body>

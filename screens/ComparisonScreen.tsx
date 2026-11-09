@@ -194,7 +194,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
       hintKey = "step2-desktop";
       hintContent = (
         <span>
-          <strong className="font-bold text-gray-900">HINT:</strong> You can also make selections by pressing<br />
+          <strong className="font-extrabold">HINT:</strong> You can also make selections by pressing<br />
           <KeyCap>1</KeyCap> and <KeyCap>2</KeyCap>, or <KeyCap><ArrowLeftIcon /></KeyCap> and <KeyCap><ArrowRightIcon /></KeyCap>.
         </span>
       );
@@ -203,7 +203,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
       hintKey = "step2-mobile-portrait";
       hintContent = (
         <span>
-          <strong className="font-bold text-gray-900">HINT:</strong> Try turning your screen horizontal. It's probably more comfortable for long sets!
+          <strong className="font-extrabold">HINT:</strong> Try turning your screen horizontal. It's probably more comfortable for long sets!
         </span>
       );
     }
