@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+  <style>
+    .a { fill: #000 } .b { fill: #fff }
+    @media (prefers-color-scheme: dark) { .a { fill: #fff } .b { fill: #000 } }
+  </style>
+  <path class="a" d="M40 5C65 5 75 15 75 40C75 65 65 75 40 75C15 75 5 65 5 40C5 15 15 5 40 5Z"/>
+  <path class="b" d="M30 38L40 24L50 38H46V44H34V38H30Z"/>
+  <path class="b" d="M30 42L40 56L50 42H46V36H34V36H30Z"/>
+  <rect class="a" x="28" y="38" width="24" height="4"/>
+</svg>
