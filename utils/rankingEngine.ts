@@ -4,26 +4,26 @@ import { Item, ComparisonPair } from '../types';
  * Directed Graph to handle transitive inference checks
  */
 class PreferenceGraph {
-  private adj: Map<Item, Set<Item>>;
+  private adj: Map<string, Set<string>>;
 
   constructor() {
     this.adj = new Map();
   }
 
   addEdge(winner: Item, loser: Item) {
-    if (!this.adj.has(winner)) this.adj.set(winner, new Set());
-    this.adj.get(winner)!.add(loser);
+    if (!this.adj.has(winner.id)) this.adj.set(winner.id, new Set());
+    this.adj.get(winner.id)!.add(loser.id);
   }
 
   // Returns true if there is a path from start to end (implying start > end)
   hasPath(start: Item, end: Item): boolean {
-    if (start === end) return true;
-    const visited = new Set<Item>();
-    const stack = [start];
+    if (start.id === end.id) return true;
+    const visited = new Set<string>();
+    const stack = [start.id];
 
     while (stack.length > 0) {
       const curr = stack.pop()!;
-      if (curr === end) return true;
+      if (curr === end.id) return true;
       if (visited.has(curr)) continue;
       visited.add(curr);
 

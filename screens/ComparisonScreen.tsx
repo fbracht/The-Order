@@ -33,19 +33,16 @@ const CheckIcon = () => (
 
 interface ComparisonScreenProps {
   items: Item[];
-  edges: [Item, Item][];
+  edges: [string, string][];
   onDecision: (winner: Item, loser: Item) => void;
   onComplete: (sortedItems: Item[]) => void;
 }
 
 // A simple hook to manage the generator asynchronously
-function useRankingEngine(items: Item[], edges: [Item, Item][]) {
+function useRankingEngine(items: Item[], edges: [string, string][]) {
   const [currentPair, setCurrentPair] = useState<ComparisonPair | null>(null);
   const generatorRef = useRef<AsyncGenerator<ComparisonPair, Item[], 'LEFT' | 'RIGHT'> | null>(null);
   const [sortedList, setSortedList] = useState<Item[] | null>(null);
-
-  // Initialize graph
-  const graph = useRef(new Map<string, Set<string>>());
 
   // Rebuild graph from edges
   const rebuildGraph = () => {
@@ -71,9 +68,9 @@ function useRankingEngine(items: Item[], edges: [Item, Item][]) {
 
     // Create a graph object compatible with our engine
     return {
-      addEdge: add,
-      hasPath: (s: string, e: string) => hasPath(s, e),
-      // internal map access if needed, but the interface handles it
+      addEdge: (winner: Item, loser: Item) => add(winner.id, loser.id),
+      hasPath: (start: Item, end: Item) => hasPath(start.id, end.id),
+      addIds: add
     };
   };
 
@@ -96,7 +93,7 @@ function useRankingEngine(items: Item[], edges: [Item, Item][]) {
     // 1. Build graph wrapper
     const graphImpl = rebuildGraph();
     // 2. Hydrate graph with existing edges
-    edges.forEach(([w, l]) => graphImpl.addEdge(w, l));
+    edges.forEach(([winnerId, loserId]) => graphImpl.addIds(winnerId, loserId));
 
     // 3. Start generator
     generatorRef.current = mergeSortGenerator(items, graphImpl as any);
@@ -255,7 +252,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
 
     // Run for every item
     for (const item of items) {
-      totalResolved += countReachable(item);
+      totalResolved += countReachable(item.id);
     }
 
     // 3. Calculate against total possible pairs
@@ -292,17 +289,24 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
         <AnimatePresence mode="popLayout">
           {currentPair ? (
             <motion.div
-              key={currentPair.left}
-              layoutId={currentPair.left}
+              key={currentPair.left.id}
+              layoutId={currentPair.left.id}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="z-10 text-center px-8 w-full max-w-xl mx-auto"
             >
-              <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
-                {currentPair.left}
-              </h2>
+              {currentPair.left.imageUrl ? (
+                <div className="flex flex-col items-center">
+                  <img src={currentPair.left.imageUrl} alt={currentPair.left.label} className="max-h-[34vh] landscape:max-h-[60vh] max-w-[80vw] rounded-2xl object-contain shadow-2xl" />
+                  <h2 className="mt-4 text-xl md:text-3xl font-bold tracking-tight">{currentPair.left.label}</h2>
+                </div>
+              ) : (
+                <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
+                  {currentPair.left.label}
+                </h2>
+              )}
               <div className="mt-6 opacity-0 group-hover:opacity-60 transition-opacity text-sm font-bold uppercase tracking-widest hidden md:block">
                 Select Option A
               </div>
@@ -351,17 +355,24 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
         <AnimatePresence mode="popLayout">
           {currentPair ? (
             <motion.div
-              key={currentPair.right}
-              layoutId={currentPair.right}
+              key={currentPair.right.id}
+              layoutId={currentPair.right.id}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="z-10 text-center px-8 w-full max-w-xl mx-auto"
             >
-              <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
-                {currentPair.right}
-              </h2>
+              {currentPair.right.imageUrl ? (
+                <div className="flex flex-col items-center">
+                  <img src={currentPair.right.imageUrl} alt={currentPair.right.label} className="max-h-[34vh] landscape:max-h-[60vh] max-w-[80vw] rounded-2xl object-contain shadow-xl" />
+                  <h2 className="mt-4 text-xl md:text-3xl font-bold tracking-tight">{currentPair.right.label}</h2>
+                </div>
+              ) : (
+                <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
+                  {currentPair.right.label}
+                </h2>
+              )}
               <div className="mt-6 opacity-0 group-hover:opacity-40 transition-opacity text-sm font-bold uppercase tracking-widest hidden md:block">
                 Select Option B
               </div>

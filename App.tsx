@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Item, RankingState } from './types';
+import { Item, ListType, RankingState } from './types';
 import { InputScreen } from './screens/InputScreen';
 import { ComparisonScreen } from './screens/ComparisonScreen';
 import { ResultScreen } from './screens/ResultScreen';
@@ -10,9 +10,45 @@ const STORAGE_KEY = 'the_order_state_v1';
 
 const INITIAL_STATE: RankingState = {
   status: 'INPUT',
+  listType: 'TEXT',
   items: [],
   edges: []
 };
+
+function restoreState(): RankingState {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return INITIAL_STATE;
+
+    const parsed = JSON.parse(saved);
+    const items = Array.isArray(parsed.items) ? parsed.items : [];
+
+    // Migrate sessions created before list types and item metadata existed.
+    if (items.every((item: unknown) => typeof item === 'string')) {
+      return {
+        status: parsed.status === 'COMPARING' || parsed.status === 'RESULTS' ? parsed.status : 'INPUT',
+        listType: 'TEXT',
+        items: items.map((label: string) => ({ id: label, label })),
+        edges: Array.isArray(parsed.edges) ? parsed.edges : []
+      };
+    }
+
+    if (parsed.listType === 'IMAGES') {
+      // Object URLs from file uploads cannot be restored after a browser refresh.
+      return { ...INITIAL_STATE, listType: 'IMAGES' };
+    }
+
+    return {
+      status: parsed.status === 'COMPARING' || parsed.status === 'RESULTS' ? parsed.status : 'INPUT',
+      listType: 'TEXT',
+      items,
+      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+      finalItems: Array.isArray(parsed.finalItems) ? parsed.finalItems : undefined
+    };
+  } catch {
+    return INITIAL_STATE;
+  }
+}
 
 // Fisher-Yates shuffle helper
 function shuffle<T>(array: T[]): T[] {
@@ -26,12 +62,7 @@ function shuffle<T>(array: T[]): T[] {
 
 function App() {
   const [state, setState] = useState<RankingState>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_STATE;
-    } catch {
-      return INITIAL_STATE;
-    }
+    return restoreState();
   });
 
   // Final sorted list is ephemeral until completion, but we store it here for the Results view
@@ -43,6 +74,12 @@ function App() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Image files use browser object URLs, which are valid only for this session.
+    // Avoid restoring a results screen with broken image URLs after a refresh.
+    if (state.listType === 'IMAGES') {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
@@ -60,7 +97,7 @@ function App() {
     };
   }, [showUndoNav]);
 
-  const handleStart = (items: Item[]) => {
+  const handleStart = (items: Item[], listType: ListType) => {
     // If user starts a new session, clear any pending undo functionality
     setShowUndoNav(false);
     setPreviousState(null);
@@ -68,21 +105,23 @@ function App() {
     // Shuffle items initially so the comparison pairs are not deterministic based on input order
     setState({
       status: 'COMPARING',
+      listType,
       items: shuffle(items),
-      edges: []
+      edges: [],
+      finalItems: undefined
     });
   };
 
   const handleDecision = (winner: Item, loser: Item) => {
     setState(prev => ({
       ...prev,
-      edges: [...prev.edges, [winner, loser]]
+      edges: [...prev.edges, [winner.id, loser.id]]
     }));
   };
 
   const handleComplete = (sortedItems: Item[]) => {
     setFinalList(sortedItems);
-    setState(prev => ({ ...prev, status: 'RESULTS' }));
+    setState(prev => ({ ...prev, status: 'RESULTS', finalItems: sortedItems }));
   };
 
   // Reset completely to a new empty set
@@ -94,6 +133,7 @@ function App() {
     // Hard reset
     setState({
       status: 'INPUT',
+      listType: 'TEXT',
       items: [],
       edges: []
     });
@@ -108,9 +148,11 @@ function App() {
 
     setState({
       status: 'COMPARING',
+      listType: state.listType,
       // Always shuffle on restart to provide a fresh comparison path
       items: shuffle(itemsToRank),
-      edges: []
+      edges: [],
+      finalItems: undefined
     });
     setShowUndoNav(false);
     setPreviousState(null);
@@ -160,7 +202,8 @@ function App() {
             <InputScreen
               key="input"
               onStart={handleStart}
-              initialValue={state.items}
+              initialItems={state.items}
+              initialListType={state.listType}
             />
           )}
 
@@ -177,7 +220,7 @@ function App() {
           {state.status === 'RESULTS' && (
             <ResultScreen
               key="results"
-              items={finalList.length > 0 ? finalList : state.items}
+              items={finalList.length > 0 ? finalList : (state.finalItems ?? state.items)}
               onReset={handleReset}
               onRestart={handleRestart}
             />
