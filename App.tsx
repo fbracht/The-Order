@@ -119,9 +119,22 @@ function App() {
     }));
   };
 
+  // Take back the most recent answer; the comparison screen recomputes from the rest
+  const handleUndoDecision = () => {
+    setState(prev => ({ ...prev, edges: prev.edges.slice(0, -1) }));
+  };
+
+  // sortedItems is shorter than the full list when the user stopped at a Top N
   const handleComplete = (sortedItems: Item[]) => {
     setFinalList(sortedItems);
     setState(prev => ({ ...prev, status: 'RESULTS', finalItems: sortedItems }));
+  };
+
+  // Resume a ranking that was stopped at a Top N. The answers are still in
+  // state, so it picks up at the next unanswered question.
+  const handleContinue = () => {
+    setFinalList([]);
+    setState(prev => ({ ...prev, status: 'COMPARING', finalItems: undefined }));
   };
 
   // Reset completely to a new empty set
@@ -213,6 +226,7 @@ function App() {
               items={state.items}
               edges={state.edges}
               onDecision={handleDecision}
+              onUndo={handleUndoDecision}
               onComplete={handleComplete}
             />
           )}
@@ -221,6 +235,8 @@ function App() {
             <ResultScreen
               key="results"
               items={finalList.length > 0 ? finalList : (state.finalItems ?? state.items)}
+              totalCount={state.items.length}
+              onContinue={handleContinue}
               onReset={handleReset}
               onRestart={handleRestart}
             />

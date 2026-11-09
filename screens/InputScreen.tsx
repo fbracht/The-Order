@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '../components/Button';
 import { motion } from 'framer-motion';
-import { estimateTotalComparisons } from '../utils/rankingEngine';
+import { estimateTotalComparisons, estimateTopComparisons, checkpointsFor } from '../utils/rankingEngine';
 import { sanitizeString, MAX_ITEM_LENGTH, MAX_LIST_SIZE } from '../utils/security';
 import { getRandomPreset, PRESETS } from '../utils/presets';
 import { Item, ListType } from '../types';
@@ -147,6 +147,11 @@ export const InputScreen: React.FC<InputScreenProps> = ({
   // Only show estimate if it's 2 minutes (120 seconds) or more
   const showTimeEstimate = estimatedSeconds >= 120 && (listType === 'IMAGES' || !isTooLarge);
   const timeText = showTimeEstimate ? `${Math.floor(estimatedSeconds / 60)} min` : null;
+
+  // Long lists can be stopped early once the top is settled
+  const roundQuestions = (count: number) => (count >= 100 ? Math.round(count / 10) * 10 : Math.round(count / 5) * 5);
+  const offersTopN = isValid && checkpointsFor(itemCount).includes(10);
+  const topTenQuestions = offersTopN ? roundQuestions(estimateTopComparisons(itemCount, 10)) : 0;
 
   return (
     <motion.div
@@ -335,6 +340,13 @@ export const InputScreen: React.FC<InputScreenProps> = ({
           >
             Begin Ranking
           </Button>
+
+          {offersTopN && (
+            <p className="mt-3 text-center text-xs font-medium leading-relaxed text-gray-500">
+              About {topTenQuestions} questions for a Top 10, or {roundQuestions(estimatedComparisons)} to rank everything.
+              You can stop once the top is settled.
+            </p>
+          )}
         </div>
       </div>
     </motion.div>
