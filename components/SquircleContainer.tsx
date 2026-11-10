@@ -6,7 +6,17 @@ interface SquircleProps {
     bgClassName?: string;
     cornerRadius?: number; // Base radius info
     backgroundColor?: string;
+    /** Which step of the shadow scale the shape casts. */
+    shadow?: 'none' | 'mid' | 'high';
 }
+
+// The same values as --shadow-mid and --shadow-high in index.css, written as
+// drop-shadow filters because the shape is an SVG path, not a box.
+const SHADOW_FILTER = {
+    none: undefined,
+    mid: 'drop-shadow(0 8px 12px rgba(0, 0, 0, 0.16))',
+    high: 'drop-shadow(0 20px 24px rgba(0, 0, 0, 0.28))'
+};
 
 // Helper to generate a "smooth" corner path data 
 // Approximating Figma's "60% smoothing" or iOS squircle
@@ -46,7 +56,8 @@ export const SquircleContainer: React.FC<SquircleProps> = ({
     className = "",
     bgClassName = "",
     cornerRadius = 48, // Default ~3rem
-    backgroundColor
+    backgroundColor,
+    shadow = 'none'
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dims, setDims] = useState({ w: 0, h: 0 });
@@ -74,17 +85,21 @@ export const SquircleContainer: React.FC<SquircleProps> = ({
 
     return (
         <div className={`relative ${className}`} ref={containerRef}>
-            {/* Background Layer with Shadow and Shape */}
-            {dims.w > 0 && (
+            {/* Background layer. Until the box has been measured there is no
+                path to draw, so a plain rounded rectangle stands in for it:
+                the shape never appears without a background. */}
+            {dims.w > 0 ? (
                 <svg
                     className={`absolute inset-0 w-full h-full pointer-events-none transition-colors duration-200 ${bgClassName}`}
-                    style={{
-                        // We apply drop shadow to the SVG element which will cast based on the filled Path
-                        filter: 'drop-shadow(0 25px 50px rgba(0, 0, 0, 0.25))'
-                    }}
+                    style={{ filter: SHADOW_FILTER[shadow] }}
                 >
                     <path d={pathData} fill={backgroundColor || "currentColor"} />
                 </svg>
+            ) : (
+                <div
+                    className={`absolute inset-0 pointer-events-none ${bgClassName}`}
+                    style={{ borderRadius: cornerRadius, backgroundColor: backgroundColor || 'currentColor' }}
+                />
             )}
 
             {/* Content Layer */}

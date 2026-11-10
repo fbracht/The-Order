@@ -16,6 +16,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   onUndo,
   inverted = false
 }) => {
+  const LogoWrapper = (isLogoClickable ? 'button' : 'div') as React.ElementType;
+  // On the comparison screen the logo sits on fixed black and white panels;
+  // everywhere else it follows the light or dark palette.
+  const shape = inverted ? 'white' : 'var(--color-ink)';
+  const glyph = inverted ? 'black' : 'var(--color-on-ink)';
   return (
     <div className="fixed top-0 left-0 right-0 z-50 h-24 pointer-events-none">
       {/* 
@@ -32,11 +37,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         className="absolute top-6 left-1/2 pointer-events-auto"
         style={{ transform: 'translateX(-51%)' }}
       >
-        <div
-          onClick={isLogoClickable ? onLogoClick : undefined}
-          className={`group flex items-center select-none ${isLogoClickable ? 'cursor-pointer' : ''}`}
-          role={isLogoClickable ? "button" : undefined}
-          aria-label={isLogoClickable ? "Return to input" : "The Order"}
+        {/* A real button while it leads somewhere, so it can be reached with Tab */}
+        <LogoWrapper
+          {...(isLogoClickable
+            ? { type: 'button', onClick: onLogoClick, 'aria-label': 'The Order: back to your list' }
+            : { 'aria-label': 'The Order', role: 'img' })}
+          className={`group flex items-center select-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-offset-4 ${inverted ? 'focus-visible:ring-gray-400 focus-visible:ring-offset-transparent' : 'focus-visible:ring-ink focus-visible:ring-offset-page'}`}
         >
           {/* 
             Balanced Layout:
@@ -56,29 +62,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                        C 15 75, 5 65, 5 40 
                        C 5 15, 15 5, 40 5 
                        Z"
-                fill={inverted ? "white" : "black"}
+                fill={shape}
                 className="transition-colors duration-300"
               />
-              <path d="M30 38 L40 24 L50 38 H46 V44 H34 V38 H30 Z" fill={inverted ? "black" : "white"} className="transition-colors duration-300" />
-              <path d="M30 42 L40 56 L50 42 H46 V36 H34 V36 H30 Z" fill={inverted ? "black" : "white"} className="transition-colors duration-300" />
-              <rect x="28" y="38" width="24" height="4" fill={inverted ? "white" : "black"} className="transition-colors duration-300" />
+              <path d="M30 38 L40 24 L50 38 H46 V44 H34 V38 H30 Z" fill={glyph} className="transition-colors duration-300" />
+              <path d="M30 42 L40 56 L50 42 H46 V36 H34 V36 H30 Z" fill={glyph} className="transition-colors duration-300" />
+              <rect x="28" y="38" width="24" height="4" fill={shape} className="transition-colors duration-300" />
             </svg>
           </div>
 
           {/* CENTER: SEPARATOR */}
           {/* While comparing in portrait the lockup sits on the black top panel, so it flips to white.
               In landscape the seam runs through the separator and the wordmark stays on the white side. */}
-          <div className={`h-12 w-0.5 opacity-50 relative rounded-full transition-colors duration-300 bg-black ${inverted ? 'portrait:bg-white' : ''}`}></div>
+          <div className={`h-12 w-0.5 opacity-50 relative rounded-full transition-colors duration-300 ${inverted ? 'bg-black portrait:bg-white' : 'bg-ink'}`}></div>
 
           {/* RIGHT SIDE: TEXT (Aligned Left) */}
-          <div className={`w-[100px] flex justify-start pl-5 transition-colors duration-300 text-black ${inverted ? 'portrait:text-white' : ''}`}>
+          <div className={`w-[100px] flex justify-start pl-5 transition-colors duration-300 text-left ${inverted ? 'text-black portrait:text-white' : 'text-ink'}`}>
             <div className="flex flex-col justify-center leading-none" style={{ fontFamily: 'Outfit, sans-serif' }}>
               <span className="text-sm font-bold tracking-widest uppercase opacity-60 -mb-1" style={{ marginLeft: '1px' }}>The</span>
               <span className="text-[27px] font-extrabold tracking-tight uppercase leading-[0.9]">Order</span>
             </div>
           </div>
 
-        </div>
+        </LogoWrapper>
       </div>
 
       {/* Undo Button - Absolute Right */}
@@ -89,8 +95,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
+              type="button"
               onClick={onUndo}
-              className="w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform"
+              aria-label="Go back to where you were"
+              title="Go back to where you were"
+              className="w-11 h-11 bg-surface shadow-mid rounded-full flex items-center justify-center text-ink hover:scale-105 transition-transform"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 14L4 9l5-5" />

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 // --- Visual Components for Hints ---
 
 const KeyCap = ({ children }: { children: React.ReactNode }) => (
-  <span className="inline-flex items-center justify-center min-w-[1.6em] h-[1.6em] px-1 text-[0.9em] font-bold font-sans text-gray-500 bg-white border border-gray-300 rounded mx-0.5 shadow-[0_1px_0_rgba(0,0,0,0.1)] relative -top-0.5 select-none whitespace-nowrap align-middle">
+  <span className="inline-flex items-center justify-center min-w-[1.6em] h-[1.6em] px-1 text-[0.9em] font-bold font-sans text-gray-500 bg-white border border-gray-300 rounded mx-0.5 shadow-low relative -top-0.5 select-none whitespace-nowrap align-middle">
     {children}
   </span>
 );
@@ -109,6 +109,11 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
     const winner = choice === 'LEFT' ? currentPair.left : currentPair.right;
     const loser = choice === 'LEFT' ? currentPair.right : currentPair.left;
     onDecision(winner, loser);
+  };
+
+  // A held Enter or Space on a focused panel must not answer a run of questions
+  const ignoreHeldKey = (event: React.KeyboardEvent) => {
+    if (event.repeat) event.preventDefault();
   };
 
   const canUndo = edges.length > 0 && !isFinished;
@@ -218,57 +223,61 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
     <motion.div
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 w-full h-full flex flex-col landscape:flex-row bg-[#F5F5F7] overflow-hidden"
+      className="fixed inset-0 w-full h-full flex flex-col landscape:flex-row bg-page overflow-hidden"
     >
 
       {/* Top / Left Panel (Option 1) - DARK MODE */}
-      <motion.div
+      <motion.button
+        type="button"
+        disabled={isFinished}
+        aria-label={currentPair ? `Choose ${currentPair.left.label}` : undefined}
         initial={firstPanelFrom}
         animate={{ x: 0, y: 0 }}
         transition={panelEnter}
-        className={`relative flex-1 flex flex-col items-center justify-end pb-14 landscape:justify-center landscape:pb-0 landscape:pt-10
-        bg-black text-white
-        ${isFinished ? '' : 'cursor-pointer active:opacity-95'} transition-opacity duration-200`}
+        className={`relative flex-1 min-h-0 min-w-0 flex flex-col items-center justify-end pb-14 landscape:justify-center landscape:pb-0 landscape:pt-10
+        bg-black text-white outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-white/70
+        ${isFinished ? '' : 'active:opacity-95'} transition-opacity duration-200`}
         onClick={() => handleChoice('LEFT')}
+        onKeyDown={ignoreHeldKey}
       >
-        <div className={`absolute inset-0 flex flex-col items-center justify-end pb-0 landscape:justify-center landscape:pb-0 pointer-events-none transition-opacity duration-500 ${isFinished ? 'opacity-0' : 'opacity-100'}`}>
+        <span aria-hidden="true" className={`absolute inset-0 flex flex-col items-center justify-end pb-0 landscape:justify-center landscape:pb-0 pointer-events-none transition-opacity duration-500 ${isFinished ? 'opacity-0' : 'opacity-100'}`}>
           <span className="text-[120px] md:text-[240px] font-extrabold text-white/5 select-none leading-none tracking-tighter">1</span>
-        </div>
+        </span>
         <AnimatePresence mode="popLayout">
           {isFinished ? (
-            <motion.div
+            <motion.span
               key="done-left"
               initial={{ scale: 0.5, opacity: 0, rotate: -20 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="z-10 text-white/20"
+              className="z-10 block text-white/20"
             >
               <CheckIcon />
-            </motion.div>
+            </motion.span>
           ) : currentPair ? (
-            <motion.div
+            <motion.span
               key={currentPair.left.id}
               layoutId={currentPair.left.id}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
+              exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)', transition: { duration: 0.2, ease: 'easeOut' } }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="z-10 text-center px-8 w-full max-w-xl mx-auto"
+              className="z-10 block text-center px-8 w-full max-w-xl mx-auto"
             >
               {currentPair.left.imageUrl ? (
-                <div className="flex flex-col items-center">
-                  <img src={currentPair.left.imageUrl} alt={currentPair.left.label} className={`${imageClass} shadow-2xl`} />
-                  <h2 className="mt-4 text-xl md:text-3xl font-bold tracking-tight">{currentPair.left.label}</h2>
-                </div>
+                <span className="flex flex-col items-center">
+                  <img src={currentPair.left.imageUrl} alt="" className={`${imageClass} shadow-high`} />
+                  <span className="mt-4 block text-xl md:text-3xl font-bold tracking-tight break-words">{currentPair.left.label}</span>
+                </span>
               ) : (
-                <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
+                <span className="block text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance break-words">
                   {currentPair.left.label}
-                </h2>
+                </span>
               )}
-            </motion.div>
+            </motion.span>
           ) : null}
         </AnimatePresence>
-      </motion.div>
+      </motion.button>
 
       {/* Undo last choice */}
       <AnimatePresence>
@@ -282,7 +291,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
             onClick={handleUndo}
             aria-label="Undo last choice"
             title="Undo last choice (Z)"
-            className="fixed top-6 left-4 z-40 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
+            className="fixed top-6 left-4 z-40 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 14L4 9l5-5" />
@@ -294,7 +303,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
 
       {/* VS badge */}
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center">
-        <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center shadow-2xl border-4 border-gray-100">
+        <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center shadow-high border-4 border-gray-100">
           <span className="text-xl md:text-2xl font-extrabold text-black">VS</span>
         </div>
       </div>
@@ -310,53 +319,57 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
       </div>
 
       {/* Bottom / Right Panel (Option 2) - LIGHT MODE */}
-      <motion.div
+      <motion.button
+        type="button"
+        disabled={isFinished}
+        aria-label={currentPair ? `Choose ${currentPair.right.label}` : undefined}
         initial={secondPanelFrom}
         animate={{ x: 0, y: 0 }}
         transition={panelEnter}
-        className={`relative flex-1 flex flex-col items-center justify-start pt-14 landscape:justify-center landscape:pt-10
-        bg-white text-black
-        ${isFinished ? '' : 'cursor-pointer active:bg-gray-50'} transition-colors duration-200`}
+        className={`relative flex-1 min-h-0 min-w-0 flex flex-col items-center justify-start pt-14 landscape:justify-center landscape:pt-10
+        bg-white text-black outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-black/60
+        ${isFinished ? '' : 'active:bg-gray-50'} transition-colors duration-200`}
         onClick={() => handleChoice('RIGHT')}
+        onKeyDown={ignoreHeldKey}
       >
-        <div className={`absolute inset-0 flex flex-col items-center justify-start pt-0 landscape:justify-center landscape:pt-0 pointer-events-none transition-opacity duration-500 ${isFinished ? 'opacity-0' : 'opacity-100'}`}>
+        <span aria-hidden="true" className={`absolute inset-0 flex flex-col items-center justify-start pt-0 landscape:justify-center landscape:pt-0 pointer-events-none transition-opacity duration-500 ${isFinished ? 'opacity-0' : 'opacity-100'}`}>
           <span className="text-[120px] md:text-[240px] font-extrabold text-black/5 select-none leading-none tracking-tighter">2</span>
-        </div>
+        </span>
         <AnimatePresence mode="popLayout">
           {isFinished ? (
-            <motion.div
+            <motion.span
               key="done-right"
               initial={{ scale: 0.5, opacity: 0, rotate: 20 }}
               animate={{ scale: 1, opacity: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 20 }}
-              className="z-10 text-black/20"
+              className="z-10 block text-black/20"
             >
               <CheckIcon />
-            </motion.div>
+            </motion.span>
           ) : currentPair ? (
-            <motion.div
+            <motion.span
               key={currentPair.right.id}
               layoutId={currentPair.right.id}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
+              exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)', transition: { duration: 0.2, ease: 'easeOut' } }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="z-10 text-center px-8 w-full max-w-xl mx-auto"
+              className="z-10 block text-center px-8 w-full max-w-xl mx-auto"
             >
               {currentPair.right.imageUrl ? (
-                <div className="flex flex-col items-center">
-                  <img src={currentPair.right.imageUrl} alt={currentPair.right.label} className={`${imageClass} shadow-xl`} />
-                  <h2 className="mt-4 text-xl md:text-3xl font-bold tracking-tight">{currentPair.right.label}</h2>
-                </div>
+                <span className="flex flex-col items-center">
+                  <img src={currentPair.right.imageUrl} alt="" className={`${imageClass} shadow-high`} />
+                  <span className="mt-4 block text-xl md:text-3xl font-bold tracking-tight break-words">{currentPair.right.label}</span>
+                </span>
               ) : (
-                <h2 className="text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance">
+                <span className="block text-4xl md:text-7xl font-bold tracking-tight leading-tight text-balance break-words">
                   {currentPair.right.label}
-                </h2>
+                </span>
               )}
-            </motion.div>
+            </motion.span>
           ) : null}
         </AnimatePresence>
-      </motion.div>
+      </motion.button>
 
       {/* Bottom panel: a "stop here?" offer when a Top N is settled, otherwise onboarding hints */}
       <div className="fixed bottom-8 left-0 right-0 flex justify-center px-4 pointer-events-none z-40">
@@ -369,7 +382,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-black/90 backdrop-blur-md shadow-2xl rounded-full pl-6 pr-2 py-2 pointer-events-auto max-w-lg border border-white/10 flex items-center gap-3"
+              className="bg-black/90 backdrop-blur-md shadow-mid rounded-full pl-6 pr-2 py-2 pointer-events-auto max-w-lg border border-white/10 flex items-center gap-3"
             >
               <span className="text-sm font-bold text-white leading-snug">
                 Your Top {activeOffer.size} is settled.
@@ -399,7 +412,7 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-black/90 backdrop-blur-md shadow-2xl rounded-full px-6 py-3 text-center pointer-events-auto max-w-lg border border-white/10"
+              className="bg-black/90 backdrop-blur-md shadow-mid rounded-full px-6 py-3 text-center pointer-events-auto max-w-lg border border-white/10"
             >
               <div className="text-sm font-bold text-white leading-relaxed">
                 {hintContent}

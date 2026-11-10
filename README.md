@@ -1,69 +1,90 @@
 # The Order
 
-**The Order** is a ranking tool that uses transitive inference (Merge Sort logic) to help users rank items with elegance, efficiency, and a bit of fun. Unlike a standard drag-and-drop list, this app forces the user to make binary choices ("A vs B") along the way, drastically simplifying the cognitive load of ranking large sets.
+**The Order** ranks any list by asking you to pick between two items at a time. You never have to hold the whole list in your head: answer "this or that" until the app has enough to put everything in order.
 
-## 🧠 Project Philosophy & Motivation
+Live at **https://fbracht.github.io/The-Order/**
 
-The original vision for this project was to create a ranking tool that feels less like a spreadsheet and more like a tactile, high-end experience.
+It runs entirely in the browser. There is no server, no account, and nothing you enter leaves your device.
 
-### Core Motivations
-1.  **Efficiency via Inference:** If a user prefers A > B and B > C, the app should automatically know that A > C. It uses a directed graph to track these relationships, minimizing the number of questions asked.
-2.  **Aesthetics First:** The app relies on a "Swiss Design" aesthetic—clean typography, high contrast, ample whitespace, and subtle motion. It should feel native and polished on both mobile and desktop.
-3.  **The "Receipt" Payoff:** The end result isn't just a list; it is presented as a physical, perforated receipt that can be customized and copied to the clipboard for easy sharing.
+## What it does
 
-### Specific Design Decisions
-*   **The "Done" State:** When the ranking finishes, we deliberately avoid an immediate jump to the results. Instead, the comparison cards transform into a Checkmark Glyph for exactly **0.8 seconds** while the progress bar animates to the end. This provides a moment of satisfaction and closure before the data is revealed.
-*   **"Surprise Me" Logic:** To reduce clutter, the "Surprise Me" button (which loads presets like Beatles Albums or Ice Cream flavors) **only** appears if the input list is empty or matches an existing preset. If the user is typing their own list, this button fades away to avoid distraction.
-*   **The "Take Me Back" Pattern:** The navigation allows for a temporary "Undo" state. If the user accidentally navigates away during a ranking session, they have a brief window to return to their previous state. 
+- **Rank text or images.** Type or paste a list (one item per line), or add images from your device.
+- **Forgiving input.** Pasted lists lose their numbering and bullets, a comma-separated line becomes one item per line, and repeated items can be removed with one tap.
+- **As few questions as possible.** The ranking is a merge sort whose comparisons you answer. It never asks a question it could work out from your earlier answers.
+- **Undo.** Take back any pick with the undo arrow, `Z` or `Backspace`, all the way to the first question.
+- **Stop early with a Top N.** For lists of 30 items or more, places settle from first downward. The app says how many questions a Top 10 will take, and offers to stop when your Top 5, 10, 20, 25, 50 or 100 is settled. You can pick up where you left off later.
+- **Share the result.** Save the ranking as a picture (or open the share sheet on a phone), copy it as text, or copy a link that opens the same list for someone else to rank.
+- **Keeps your place.** A refresh brings back the list, your answers and the result. Images are kept in the browser's own database so image rankings survive a refresh too.
+- **Light and dark.** Follows the system setting, and respects the reduced-motion setting.
+- **Keyboard friendly.** `1` / `2` or the arrow keys to pick, and every control can be reached with `Tab`.
 
----
+## Running it
 
-## 🛠 Technical Architecture
+```bash
+npm install
+npm run dev      # http://localhost:3000/The-Order/
+npm test         # unit tests
+npm run build    # production build in dist/
+npm run deploy   # test, build and publish dist/ to GitHub Pages
+```
 
-The app is built with **React (TypeScript)** and **Tailwind CSS**. It uses **Framer Motion** for all animations.
+The dev server only listens on your own computer. To open it from a phone on the same network, run `npm run dev -- --host`.
 
-### 1. The Ranking Engine (`utils/rankingEngine.ts`)
-This is the brain of the application.
-*   **Algorithm:** It implements a generator-based Merge Sort.
-*   **Transitive Inference:** Before asking the user to compare two items, it checks a `PreferenceGraph` (DAG). If a path exists between two items, it skips the question.
-*   **Async Generator:** The sort logic yields `ComparisonPair` objects to the UI and waits for a Promise resolution (`LEFT` or `RIGHT`) before continuing.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for hosting notes.
 
-### 2. State Management (`App.tsx`)
-The app moves through three distinct phases:
-1.  **INPUT:** User enters raw text (newline separated).
-2.  **COMPARING:** The interactive phase using the Ranking Engine.
-3.  **RESULTS:** The final sorted display.
+## How it is built
 
-*Data Persistence:* State is saved to `localStorage` to prevent data loss on refresh.
+React 19 and TypeScript, built with Vite. Styling is Tailwind CSS v4, compiled at build time. Animation is Framer Motion.
 
-### 3. Sharing (`screens/ResultScreen.tsx`)
-We provide a "Copy to Clipboard" feature to share rankings.
-*   **Format:** The list is formatted with the title, date, and ranked items for clean text-based sharing.
+### The ranking engine (`utils/rankingEngine.ts`)
 
----
+`getRankingState(items, answers)` is a pure function. It re-runs the sort from the start, answering each comparison from the recorded answers, and stops at the first one it cannot answer: that is the next question. Two things follow from this:
 
-## 📂 File Structure Overview
+- **Undo** is removing the last answer and calling it again.
+- **Resuming after a refresh** is calling it with the saved answers.
 
-*   **`App.tsx`**: Main entry point, handles global state, routing, and the "Undo" timer.
-*   **`screens/`**:
-    *   `InputScreen.tsx`: Text area input. Contains logic for the "Surprise Me" button and input validation/sanitization.
-    *   `ComparisonScreen.tsx`: The binary choice UI. Handles keyboard shortcuts (1/2, Arrow Keys) and the "Checkmark" animation.
-    *   `ResultScreen.tsx`: The visual "receipt." Handles title editing and clipboard sharing.
-*   **`utils/`**:
-    *   `rankingEngine.ts`: The logic for sorting and graph traversal.
-    *   `presets.ts`: Static lists used for the "Surprise Me" feature.
-    *   `security.ts`: Input sanitization (XSS prevention, length limits).
-*   **`components/`**:
-    *   `Button.tsx`: Reusable button component with variants.
-    *   `Navbar.tsx`: Top navigation bar.
+The same code runs in two question orders, at the same total cost:
 
----
+- **Lists under 30 items** use the classic order: sort each half, then merge.
+- **Lists of 30 or more** run lazily: each merge only does the work needed to produce its next-best item. First place is known after `n − 1` questions and each further place costs about `log2(n)` more, which is what makes the Top N possible.
 
-## 🚀 For the Next Developer
+The progress bar shows questions answered out of answered plus expected remaining, so it jumps forward when a pick lets the app place several items without asking.
 
-*   **Styling:** We use standard Tailwind classes. Note the specific color palette: backgrounds are usually `#F5F5F7` (Apple-style gray), text is `#1D1D1F`.
-*   **Animations:** `AnimatePresence` is used heavily for page transitions. Be careful when modifying the key props on `motion.div` elements to ensure exit animations play correctly.
-*   **Responsiveness:** The app works in landscape and portrait. `ComparisonScreen.tsx` has specific logic to switch layout orientation based on the device aspect ratio.
-*   **Presets:** If you want to add more "Surprise Me" options, simply add string arrays to `utils/presets.ts`.
+### State (`App.tsx`)
 
-Enjoy keeping The Order.
+One `RankingState` object holds the screen (`INPUT`, `COMPARING` or `RESULTS`), the list in both entered and shuffled order, the answers, the result and its title. It is saved to `localStorage` after every change.
+
+Uploaded images are shown through object URLs, which stop working on reload. Their files are stored in IndexedDB (`utils/imageStore.ts`) and new URLs are made on the next visit. If the browser refuses to store them, the app warns before the page is closed instead.
+
+### Sharing
+
+- **Picture** (`utils/shareImage.ts`): the ranking is drawn directly on a canvas, so it needs no screenshot library and looks the same on every screen. Lists over 40 items are laid out in columns.
+- **List link** (`utils/shareLink.ts`): the items are compressed into the part of the address after `#`, which browsers never send to a server.
+
+### Design system (`index.css`)
+
+Colours are named by role (`page`, `surface`, `ink`, `muted`, and so on) and have light and dark values, so screens never use fixed greys. The comparison screen is the exception: its black and white halves are the same in both modes. There are three shadow levels (`shadow-low`, `shadow-mid`, `shadow-high`); secondary buttons have none.
+
+## File overview
+
+- `App.tsx`: global state, saving and restoring, switching between screens.
+- `screens/InputScreen.tsx`: the list box, image picker, validation and "Surprise Me".
+- `screens/ComparisonScreen.tsx`: the two-panel choice, keyboard shortcuts, undo, the Top N offer and the progress bar.
+- `screens/ResultScreen.tsx`: the result card, title editing and sharing.
+- `components/`: `Button`, `Navbar`, and `SquircleContainer` (the smooth-cornered shape, drawn as an SVG path).
+- `utils/rankingEngine.ts`: the sort described above. Tests in `rankingEngine.test.ts`.
+- `utils/listInput.ts`: paste clean-up and duplicate handling.
+- `utils/shareImage.ts`, `utils/shareLink.ts`, `utils/imageStore.ts`: see Sharing and State.
+- `utils/presets.ts`: the "Surprise Me" lists. Add a list by adding an array of strings.
+- `utils/security.ts`: length limits and input clean-up.
+
+## Design notes
+
+- **The pause at the end.** When the last question is answered, both panels turn into a checkmark for 0.8 seconds while the progress bar fills, before the result appears.
+- **Surprise Me** only shows while the list is empty or still matches a preset, so it stays out of the way once you type your own.
+- **Changed your mind?** Tapping the logo mid-ranking goes back to the list, and for four seconds an arrow in the corner takes you back to where you were.
+- **An item stays on its side.** When the same item appears in two questions in a row, it keeps its place on screen.
+
+## License
+
+[MIT](LICENSE)

@@ -2,13 +2,50 @@
 
 @theme {
   --font-sans: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --color-background: #F5F5F7;
-  --color-foreground: #000000;
-  --color-primary: #000000;
-  --color-secondary: #F5F5F7;
+
+  /*
+    Semantic colours. Screens use these names instead of fixed greys, so the
+    dark values further down restyle everything at once. The comparison
+    screen is the exception: its black and white halves are the same in both
+    modes, so it uses fixed colours.
+  */
+  --color-page: #F5F5F7;      /* app background */
+  --color-surface: #FFFFFF;   /* list box, toggle */
+  --color-ink: #000000;       /* main text, primary button */
+  --color-on-ink: #FFFFFF;    /* text on a primary button */
+  --color-muted: #636A78;     /* helper text: 5:1 on the page background */
+  --color-faint: #9CA3AF;     /* placeholder text */
+  --color-line: #E9E9EE;      /* borders */
+  --color-chip: #E6E6EB;      /* secondary buttons */
+  --color-card: #000000;      /* result card */
+  --color-danger: #B91C1C;
+
+  /* The whole shadow scale. Secondary buttons get none. */
+  --shadow-low: 0 1px 2px rgb(0 0 0 / 0.08);
+  --shadow-mid: 0 8px 24px -8px rgb(0 0 0 / 0.16);
+  --shadow-high: 0 24px 48px -12px rgb(0 0 0 / 0.28);
 }
 
 @layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-page: #0E0E10;
+      --color-surface: #1C1C1F;
+      --color-ink: #FFFFFF;
+      --color-on-ink: #000000;
+      --color-muted: #A1A7B3;
+      --color-faint: #5E6470;
+      --color-line: #2C2C31;
+      --color-chip: #2A2A2E;
+      --color-card: #1C1C1F;
+      --color-danger: #F87171;
+    }
+  }
+
   html,
   body {
     height: 100%;
@@ -20,8 +57,8 @@
   }
 
   body {
-    background-color: #F5F5F7;
-    color: #000000;
+    background-color: var(--color-page);
+    color: var(--color-ink);
     /* Lock page scroll on iOS; each screen scrolls internally instead. */
     position: fixed;
   }
@@ -37,11 +74,32 @@
     width: 0;
     background: transparent;
   }
+
+  /* People who asked their system for less motion get instant CSS changes.
+     Framer Motion animations are handled by MotionConfig in App.tsx. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
 }
 
 @media print {
   @page {
     margin: 2cm;
+  }
+
+  /* Always print in the light palette. */
+  :root {
+    --color-page: #FFFFFF;
+    --color-surface: #FFFFFF;
+    --color-ink: #000000;
+    --color-on-ink: #FFFFFF;
+    --color-muted: #555555;
+    --color-card: #FFFFFF;
   }
 
   body {

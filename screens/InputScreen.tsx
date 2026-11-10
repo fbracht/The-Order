@@ -5,11 +5,14 @@ import { estimateTotalComparisons, estimateTopComparisons, checkpointsFor } from
 import { sanitizeString, MAX_ITEM_LENGTH, MAX_LIST_SIZE } from '../utils/security';
 import { getRandomPreset, PRESETS } from '../utils/presets';
 import { Item, ListType } from '../types';
+import { cleanPastedList, findDuplicates, removeDuplicates } from '../utils/listInput';
 
 interface InputScreenProps {
   onStart: (items: Item[], listType: ListType) => void;
   initialItems?: Item[];
   initialListType?: ListType;
+  /** The list arrived through a shared link. */
+  isSharedList?: boolean;
 }
 
 const itemFromText = (label: string): Item => ({ id: label, label });
@@ -25,7 +28,8 @@ const filenameToLabel = (filename: string, fallbackIndex: number): string => {
 export const InputScreen: React.FC<InputScreenProps> = ({
   onStart,
   initialItems = [],
-  initialListType = 'TEXT'
+  initialListType = 'TEXT',
+  isSharedList = false
 }) => {
   const [listType, setListType] = useState<ListType>(initialListType);
   const [text, setText] = useState(initialItems.filter(item => !item.imageUrl).map(item => item.label).join('\n'));
@@ -113,6 +117,26 @@ export const InputScreen: React.FC<InputScreenProps> = ({
     setError(null);
   };
 
+  // Pasted lists often come numbered, bulleted or comma-separated
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = event.clipboardData.getData('text/plain');
+    const cleaned = cleanPastedList(pasted);
+    if (cleaned === pasted) return;
+
+    event.preventDefault();
+    // insertText keeps the browser's own undo history working
+    if (!document.execCommand('insertText', false, cleaned)) {
+      const { selectionStart, selectionEnd } = event.currentTarget;
+      setText(text.slice(0, selectionStart) + cleaned + text.slice(selectionEnd));
+    }
+    if (error) setError(null);
+  };
+
+  const handleRemoveDuplicates = () => {
+    setText(removeDuplicates(text));
+    setError(null);
+  };
+
   const handleSurpriseMe = () => {
     const newItems = getRandomPreset(text);
     setText(newItems.join('\n'));
@@ -126,10 +150,32 @@ export const InputScreen: React.FC<InputScreenProps> = ({
   const hasLongLines = lines.some(line => line.trim().length > MAX_ITEM_LENGTH);
   const isTooLarge = lineCount > MAX_LIST_SIZE;
 
+  const longLineNumbers = lines.flatMap((line, index) => (line.trim().length > MAX_ITEM_LENGTH ? [index + 1] : []));
+
   // Check for duplicates (case-insensitive, trimmed)
-  const trimmedLines = lines.map(l => l.trim()).filter(l => l.length > 0);
-  const uniqueItems = new Set(trimmedLines.map(l => l.toLowerCase()));
-  const hasDuplicates = uniqueItems.size < trimmedLines.length;
+  const duplicates = findDuplicates(text);
+  const hasDuplicates = duplicates !== null;
+
+  // One plain sentence about what is wrong, naming the line where possible
+  let problem: React.ReactNode = null;
+  if (listType === 'TEXT' && isTooLarge) {
+    problem = `Your list has ${lineCount} items. The limit is ${MAX_LIST_SIZE}.`;
+  } else if (listType === 'TEXT' && hasLongLines) {
+    const more = longLineNumbers.length - 1;
+    problem = `Line ${longLineNumbers[0]} is longer than ${MAX_ITEM_LENGTH} characters${more > 0 ? `, and so ${more === 1 ? 'is 1 other' : `are ${more} others`}` : ''}.`;
+  } else if (listType === 'TEXT' && duplicates) {
+    const more = duplicates.extraCount - 1;
+    problem = (
+      <>
+        “{duplicates.label}” is repeated on line {duplicates.line}{more > 0 ? `, and there ${more === 1 ? 'is 1 more repeat' : `are ${more} more repeats`}` : ''}.{' '}
+        <button type="button" onClick={handleRemoveDuplicates} className="font-extrabold underline underline-offset-4 hover:no-underline">
+          Remove duplicates
+        </button>
+      </>
+    );
+  } else if (error) {
+    problem = error;
+  }
 
   const isTextValid = lineCount >= 2 && !hasLongLines && !isTooLarge && !hasDuplicates;
   const isImageValid = imageItems.length >= 2 && imageItems.length <= MAX_LIST_SIZE;
@@ -170,15 +216,16 @@ export const InputScreen: React.FC<InputScreenProps> = ({
         grow into spare height. Top padding clears the floating navbar; it is
         tighter on short viewports such as a phone held sideways.
       */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col min-h-full pt-36 md:pt-28 pb-8 px-4 sm:px-6 md:justify-center [@media(max-height:500px)]:pt-24">
+      <div className="w-full max-w-2xl mx-auto flex flex-col min-h-full pt-28 pb-8 px-4 sm:px-6 md:justify-center [@media(max-height:500px)]:pt-24">
 
         {/* Header */}
-        <header className="flex-none mb-8 md:mb-10 text-center">
-          <h1 className="text-5xl md:text-7xl [@media(max-height:820px)]:md:text-6xl font-extrabold tracking-tight text-black mb-6 uppercase">
+        <header className="flex-none mb-5 md:mb-10 text-center">
+          <h1 className="text-5xl md:text-7xl [@media(max-height:820px)]:md:text-6xl font-extrabold tracking-tight text-ink mb-4 md:mb-6 uppercase">
             Create<br />List
           </h1>
-          <p className="text-gray-500 text-lg md:text-xl font-medium max-w-md mx-auto leading-relaxed">
-            What do you want to rank today? <br />
+          <p className="text-muted text-lg md:text-xl font-medium max-w-md mx-auto leading-snug md:leading-relaxed">
+            Pick between two at a time. <br className="hidden sm:inline" />
+            We'll work out the full order. <br />
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
                 key={listType}
@@ -186,15 +233,17 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
-                className="inline-block text-gray-400 text-base"
+                className="inline-block text-muted text-base mt-1"
               >
-                {listType === 'TEXT' ? 'Enter items, one per line.' : 'Add images, then choose your favorites.'}
+                {isSharedList && listType === 'TEXT'
+                  ? 'Someone shared this list with you. Edit it, or begin.'
+                  : listType === 'TEXT' ? 'Enter items, one per line.' : 'Add the images you want to rank.'}
               </motion.span>
             </AnimatePresence>
           </p>
         </header>
 
-        <div className="flex-none mx-auto mb-6 inline-flex self-center rounded-full bg-white p-1 shadow-xs border border-gray-100" role="tablist" aria-label="List type">
+        <div className="flex-none mx-auto mb-5 md:mb-6 inline-flex self-center rounded-full bg-surface p-1 shadow-low border border-line" role="tablist" aria-label="List type">
           {(['TEXT', 'IMAGES'] as const).map((type) => (
             <button
               key={type}
@@ -202,13 +251,13 @@ export const InputScreen: React.FC<InputScreenProps> = ({
               role="tab"
               aria-selected={listType === type}
               onClick={() => { setListType(type); setError(null); }}
-              className={`relative rounded-full px-5 py-2 text-sm font-extrabold uppercase tracking-wide transition-colors duration-300 ${listType === type ? 'text-white' : 'text-gray-500 hover:text-black'}`}
+              className={`relative min-h-11 rounded-full px-6 text-sm font-extrabold uppercase tracking-wide transition-colors duration-300 ${listType === type ? 'text-on-ink' : 'text-muted hover:text-ink'}`}
             >
               {/* One shared pill that slides between the two tabs */}
               {listType === type && (
                 <motion.span
                   layoutId="list-type-pill"
-                  className="absolute inset-0 rounded-full bg-black shadow-md"
+                  className="absolute inset-0 rounded-full bg-ink"
                   transition={{ type: 'spring', stiffness: 500, damping: 40 }}
                 />
               )}
@@ -237,8 +286,11 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                     setText(e.target.value);
                     if (error) setError(null);
                   }}
+                  onPaste={handlePaste}
+                  aria-label="Your list, one item per line"
+                  aria-invalid={hasLongLines || isTooLarge || hasDuplicates}
                   placeholder={`Avocado\nBanana\nCoconut\n...`}
-                  className={`absolute inset-0 w-full h-full p-8 bg-white rounded-[2rem] border-2 shadow-xl text-2xl font-bold text-black placeholder:text-gray-200 focus:ring-4 focus:ring-black/5 focus:border-black/10 focus:outline-none resize-none leading-relaxed transition-all ${hasLongLines || isTooLarge || hasDuplicates ? 'border-red-200 focus:border-red-300' : 'border-gray-100'}`}
+                  className={`absolute inset-0 w-full h-full p-8 bg-surface rounded-[2rem] border-2 shadow-mid text-2xl font-bold text-ink placeholder:text-faint focus:ring-4 focus:ring-ink/5 focus:border-ink/20 focus:outline-none resize-none leading-relaxed transition-all ${hasLongLines || isTooLarge || hasDuplicates ? 'border-danger/40' : 'border-line'}`}
                   spellCheck={false}
                 />
 
@@ -246,7 +298,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleSurpriseMe}
-                    className={`absolute bottom-6 right-6 z-20 px-4 py-2 bg-black text-white hover:bg-gray-800 text-sm font-bold rounded-full transition-all shadow-lg transform active:scale-95 ${lineCount === 0 || isPreset ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
+                    className={`absolute bottom-6 right-6 z-20 min-h-11 px-5 bg-ink text-on-ink hover:opacity-85 text-sm font-bold rounded-full transition-all shadow-mid transform active:scale-95 ${lineCount === 0 || isPreset ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}
                     title="Load a random list"
                   >
                     Surprise Me
@@ -271,7 +323,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                   setIsDragging(false);
                   addImages(event.dataTransfer.files);
                 }}
-                className={`absolute inset-0 overflow-y-auto rounded-[2rem] border-2 bg-white p-5 shadow-xl transition-colors ${isDragging ? 'border-black bg-gray-50' : error ? 'border-red-200' : 'border-dashed border-gray-200'}`}
+                className={`absolute inset-0 overflow-y-auto rounded-[2rem] border-2 bg-surface p-5 shadow-mid transition-colors ${isDragging ? 'border-ink' : error ? 'border-danger/40' : 'border-dashed border-faint/60'}`}
               >
                 <input
                   ref={fileInputRef}
@@ -288,31 +340,38 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-full min-h-36 w-full rounded-2xl flex flex-col items-center justify-center text-center px-6 hover:bg-gray-50 transition-colors"
+                    className="h-full min-h-36 w-full rounded-2xl flex flex-col items-center justify-center text-center px-6 hover:bg-ink/5 transition-colors"
                   >
-                    <svg className="w-12 h-12 mb-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                    <svg className="w-12 h-12 mb-4 text-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5V18a2 2 0 002 2h14a2 2 0 002-2v-1.5M16 8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
-                    <span className="text-xl font-extrabold text-black">Drop images here</span>
-                    <span className="mt-2 text-sm font-medium text-gray-400">or click to choose files</span>
+                    {/* Touch screens cannot drop files, so the wording follows the pointer */}
+                    <span className="text-xl font-extrabold text-ink">
+                      <span className="pointer-coarse:hidden">Drop images here</span>
+                      <span className="hidden pointer-coarse:inline">Add images</span>
+                    </span>
+                    <span className="mt-2 text-sm font-medium text-muted">
+                      <span className="pointer-coarse:hidden">or click to choose files</span>
+                      <span className="hidden pointer-coarse:inline">Tap to choose from your photos or files</span>
+                    </span>
                   </button>
                 ) : (
                   <div className="space-y-4">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full rounded-2xl border border-dashed border-gray-300 py-4 text-sm font-extrabold uppercase tracking-wide text-gray-500 hover:border-black hover:text-black transition-colors"
+                      className="w-full rounded-2xl border border-dashed border-faint py-4 text-sm font-extrabold uppercase tracking-wide text-muted hover:border-ink hover:text-ink transition-colors"
                     >
                       Add more images
                     </button>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                       {imageItems.map((item) => (
-                        <div key={item.id} className="group/image relative aspect-square overflow-hidden rounded-xl bg-gray-100">
+                        <div key={item.id} className="group/image relative aspect-square overflow-hidden rounded-xl bg-chip">
                           <img src={item.imageUrl} alt={item.label} className="h-full w-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeImage(item.id)}
-                            className="absolute right-1.5 top-1.5 h-7 w-7 rounded-full bg-black/75 text-white opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 transition-opacity"
+                            className="absolute right-1 top-1 h-9 w-9 rounded-full bg-black/75 text-white opacity-100 sm:opacity-0 sm:group-hover/image:opacity-100 transition-opacity"
                             aria-label={`Remove ${item.label}`}
                           >
                             ×
@@ -330,23 +389,18 @@ export const InputScreen: React.FC<InputScreenProps> = ({
 
           {/* Validation Warnings */}
           <AnimatePresence initial={false}>
-          {((listType === 'TEXT' && (hasLongLines || isTooLarge || hasDuplicates)) || error) && (
+          {problem && (
             <motion.div
               key="warning"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={SWITCH}
-              className="flex-none"
+              className="flex-none w-full overflow-hidden"
             >
-            <div
-              className="mt-4 text-white text-sm font-bold text-center bg-red-500 px-4 py-2 rounded-full shadow-lg"
-            >
-              {listType === 'TEXT' && isTooLarge ? `Please limit your list to ${MAX_LIST_SIZE} items.` :
-                listType === 'TEXT' && hasLongLines ? "One or more lines exceed 100 characters." :
-                  listType === 'TEXT' && hasDuplicates ? "Duplicate items detected." :
-                    error}
-            </div>
+              <p role="alert" className="pt-3 px-2 text-center text-sm font-semibold text-danger">
+                {problem}
+              </p>
             </motion.div>
           )}
           </AnimatePresence>
@@ -361,13 +415,12 @@ export const InputScreen: React.FC<InputScreenProps> = ({
             transition={SWITCH}
             className="flex justify-between items-end mb-2 px-1 h-5"
           >
-            <span className={`text-xs font-medium tracking-wide uppercase ${listType === 'TEXT' && (isTooLarge || hasLongLines || hasDuplicates) ? 'text-red-500' : 'text-gray-400'}`}>
+            <span className={`text-xs font-semibold tracking-wide uppercase ${listType === 'TEXT' && (isTooLarge || hasLongLines || hasDuplicates) ? 'text-danger' : 'text-muted'}`}>
               {itemCount} {itemCount === 1 ? (listType === 'TEXT' ? 'Item' : 'Image') : (listType === 'TEXT' ? 'Items' : 'Images')}
-              {listType === 'TEXT' && (isTooLarge || hasLongLines || hasDuplicates) && <span className="ml-1">⚠️</span>}
             </span>
             {timeText && !error && (
-              <span className="text-xs text-gray-400 font-medium tracking-wide uppercase flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <span className="text-xs text-muted font-semibold tracking-wide uppercase flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {timeText}
@@ -394,7 +447,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                 transition={SWITCH}
                 className="overflow-hidden"
               >
-                <p className="pt-3 text-center text-xs font-medium leading-relaxed text-gray-500">
+                <p className="pt-3 text-center text-xs font-medium leading-relaxed text-muted">
                   About {topTenQuestions} questions for a Top 10, or {roundQuestions(estimatedComparisons)} to rank everything.
                   You can stop once the top is settled.
                 </p>
