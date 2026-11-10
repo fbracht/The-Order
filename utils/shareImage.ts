@@ -15,6 +15,12 @@ export interface ShareImageInput {
   items: Item[];
   /** Shown at the bottom, for example the site address. */
   footer: string;
+  /**
+   * How a long list (over 40 items) is laid out below the first five:
+   * 'columns' reads down one whole column, then the next;
+   * 'bands' breaks it into groups of ten, each read on its own.
+   */
+  longLayout?: 'columns' | 'bands';
 }
 
 const SANS = 'Outfit, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
@@ -113,15 +119,17 @@ interface RowStyle {
   maxLines: number;
 }
 
-// The first places are drawn larger, stepping down: 1st, then 2nd and 3rd,
-// then 4th and 5th, then everything else.
+// The first places are drawn larger: 1st, then 2nd and 3rd. A long list adds
+// one more step for 4th and 5th, because everything after them is small.
 const FEATURED = 5;
+const BAND_SIZE = 10;
 
 /**
  * inGrid: the small one-line rows used in the columns of a long list.
  * scale: enlarges the full-width rows on the wider canvas of a long list.
  */
-function rowStyle(index: number, inGrid: boolean, scale: number): RowStyle {
+function rowStyle(index: number, inGrid: boolean, longList: boolean): RowStyle {
+  const scale = longList ? 1.2 : 1;
   const rankColor = RANK_COLORS[index] ?? '#9CA3AF';
   const quiet = 'rgba(255,255,255,0.06)';
   if (inGrid) {
@@ -130,7 +138,7 @@ function rowStyle(index: number, inGrid: boolean, scale: number): RowStyle {
   const tier =
     index === 0 ? { labelSize: 60, labelWeight: 800, labelColor: '#FFFFFF', rankSize: 34, padY: 42, thumb: 168, background: 'rgba(255,255,255,0.14)' }
     : index < 3 ? { labelSize: 46, labelWeight: 700, labelColor: '#FFFFFF', rankSize: 28, padY: 32, thumb: 116, background: 'rgba(255,255,255,0.09)' }
-    : index < FEATURED ? { labelSize: 37, labelWeight: 700, labelColor: '#F3F4F6', rankSize: 24, padY: 26, thumb: 84, background: quiet }
+    : longList && index < FEATURED ? { labelSize: 37, labelWeight: 700, labelColor: '#F3F4F6', rankSize: 24, padY: 26, thumb: 84, background: quiet }
     : { labelSize: 29, labelWeight: 600, labelColor: '#D1D5DB', rankSize: 22, padY: 20, thumb: 64, background: quiet };
   const px = (value: number) => Math.round(value * scale);
   return {
@@ -147,7 +155,7 @@ function rowStyle(index: number, inGrid: boolean, scale: number): RowStyle {
   };
 }
 
-export async function renderRankingImage({ title, subtitle, items, footer }: ShareImageInput): Promise<HTMLCanvasElement> {
+export async function renderRankingImage({ title, subtitle, items, footer, longLayout = 'columns' }: ShareImageInput): Promise<HTMLCanvasElement> {
   // Canvas text falls back silently to a system font unless the web font is ready
   if (document.fonts?.load) {
     await Promise.all([600, 700, 800].map(weight => document.fonts.load(font(weight, 40))));
@@ -160,8 +168,8 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
   const compact = items.length > MAX_SINGLE_COLUMN;
   const fullWidthCount = compact ? FEATURED : items.length;
   const gridCount = items.length - fullWidthCount;
-  const columns = compact ? Math.max(2, Math.ceil(gridCount / MAX_SINGLE_COLUMN)) : 1;
-  const perColumn = Math.ceil(gridCount / columns);
+  const bands = compact && longLayout === 'bands';
+  const columns = !compact ? 1 : bands ? 2 : Math.max(2, Math.ceil(gridCount / MAX_SINGLE_COLUMN));
   const width = compact ? PAD * 2 + columns * COLUMN_WIDTH + (columns - 1) * COLUMN_GAP : SINGLE_WIDTH;
   const scale = compact ? 1.2 : 1;
 
@@ -175,7 +183,7 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
 
   const rows = items.map((item, index) => {
     const inGrid = index >= fullWidthCount;
-    const style = rowStyle(index, inGrid, scale);
+    const style = rowStyle(index, inGrid, compact);
     const rowWidth = inGrid ? COLUMN_WIDTH : width - PAD * 2;
     const thumb = hasImages ? style.thumb : 0;
     const textWidth = rowWidth - style.padX * 2 - style.rankWidth - (thumb ? thumb + 20 : 0);
@@ -188,12 +196,46 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
   const fullRows = rows.slice(0, fullWidthCount);
   const gridRows = rows.slice(fullWidthCount);
 
-  const stackHeight = (stack: typeof rows) => stack.reduce((sum, row) => sum + row.height + ROW_GAP, -ROW_GAP);
-  const fullHeight = stackHeight(fullRows);
+  const fullHeight = fullRows.reduce((sum, row) => sum + row.height + ROW_GAP, -ROW_GAP);
+  // Place the small rows. Each group is filled down its columns; with
+  // 'columns' the whole remainder is one group, with 'bands' every ten places
+  // are a group with a label, so the eye never travels far and the picture
+  // ends on the last place.
   const GRID_GAP = 36;
-  const gridHeight = gridRows.length
-    ? GRID_GAP + Math.max(...Array.from({ length: columns }, (_, column) => stackHeight(gridRows.slice(column * perColumn, (column + 1) * perColumn))))
-    : 0;
+  const BAND_LABEL = 44;
+  const groups: (typeof rows)[] = [];
+  if (bands) {
+    // Groups end on round numbers: 6-10, 11-20, 21-30...
+    let start = 0;
+    while (start < gridRows.length) {
+      const end = Math.min(gridRows.length, Math.ceil((fullWidthCount + start + 1) / BAND_SIZE) * BAND_SIZE - fullWidthCount);
+      groups.push(gridRows.slice(start, end));
+      start = end;
+    }
+  } else if (gridRows.length) {
+    groups.push(gridRows);
+  }
+  const placed: { row: (typeof rows)[number]; x: number; y: number }[] = [];
+  const labels: { text: string; y: number }[] = [];
+  let gridHeight = 0;
+  groups.forEach(group => {
+    gridHeight += bands && labels.length ? 28 : GRID_GAP;
+    if (bands) {
+      labels.push({ text: `${group[0].index + 1}–${group[group.length - 1].index + 1}`, y: gridHeight });
+      gridHeight += BAND_LABEL;
+    }
+    const perColumn = Math.ceil(group.length / columns);
+    let tallest = 0;
+    for (let column = 0; column < columns; column++) {
+      let offset = 0;
+      group.slice(column * perColumn, (column + 1) * perColumn).forEach(row => {
+        placed.push({ row, x: PAD + column * (COLUMN_WIDTH + COLUMN_GAP), y: gridHeight + offset });
+        offset += row.height + ROW_GAP;
+      });
+      tallest = Math.max(tallest, offset - ROW_GAP);
+    }
+    gridHeight += tallest;
+  });
 
   const titleLineHeight = Math.round(titleSize * 1.02);
   const subtitleSize = Math.round(24 * scale);
@@ -264,13 +306,12 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
     y += row.height + ROW_GAP;
   });
 
-  // Columns of small rows
-  const gridTop = y - ROW_GAP + GRID_GAP;
-  gridRows.forEach((row, position) => {
-    if (position % perColumn === 0) y = gridTop;
-    drawRow(row, PAD + Math.floor(position / perColumn) * (COLUMN_WIDTH + COLUMN_GAP), y);
-    y += row.height + ROW_GAP;
-  });
+  // Small rows, with a label above each band
+  const gridTop = y - ROW_GAP;
+  ctx.fillStyle = '#6B7280';
+  ctx.font = font(700, 20, MONO);
+  labels.forEach(label => ctx.fillText(label.text, PAD + 4, gridTop + label.y + 22));
+  placed.forEach(({ row, x, y: offset }) => drawRow(row, x, gridTop + offset));
 
   // Footer
   const footerY = height - PAD + 4;
