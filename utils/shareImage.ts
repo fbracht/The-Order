@@ -15,12 +15,6 @@ export interface ShareImageInput {
   items: Item[];
   /** Shown at the bottom, for example the site address. */
   footer: string;
-  /**
-   * How a long list (over 40 items) is laid out below the first five:
-   * 'columns' reads down one whole column, then the next;
-   * 'bands' breaks it into groups of ten, each read on its own.
-   */
-  longLayout?: 'columns' | 'bands';
 }
 
 const SANS = 'Outfit, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
@@ -119,10 +113,15 @@ interface RowStyle {
   maxLines: number;
 }
 
-// The first places are drawn larger: 1st, then 2nd and 3rd. A long list adds
-// one more step for 4th and 5th, because everything after them is small.
-const FEATURED = 5;
+// A long list (over MAX_SINGLE_COLUMN items) shows its first ten places as
+// full-width rows, exactly like a short list, and the rest as small rows in
+// bands of ten: 11-20, 21-30... Each band is read down its left half, then
+// its right, so the eye never travels far and the picture ends on the last place.
+const FEATURED = 10;
 const BAND_SIZE = 10;
+// A last band with fewer places than this joins the band before it, so the
+// picture never ends on one or two stray rows.
+const MIN_LAST_BAND = 5;
 
 /**
  * inGrid: the small one-line rows used in the columns of a long list.
@@ -138,7 +137,6 @@ function rowStyle(index: number, inGrid: boolean, longList: boolean): RowStyle {
   const tier =
     index === 0 ? { labelSize: 60, labelWeight: 800, labelColor: '#FFFFFF', rankSize: 34, padY: 42, thumb: 168, background: 'rgba(255,255,255,0.14)' }
     : index < 3 ? { labelSize: 46, labelWeight: 700, labelColor: '#FFFFFF', rankSize: 28, padY: 32, thumb: 116, background: 'rgba(255,255,255,0.09)' }
-    : longList && index < FEATURED ? { labelSize: 37, labelWeight: 700, labelColor: '#F3F4F6', rankSize: 24, padY: 26, thumb: 84, background: quiet }
     : { labelSize: 29, labelWeight: 600, labelColor: '#D1D5DB', rankSize: 22, padY: 20, thumb: 64, background: quiet };
   const px = (value: number) => Math.round(value * scale);
   return {
@@ -155,7 +153,7 @@ function rowStyle(index: number, inGrid: boolean, longList: boolean): RowStyle {
   };
 }
 
-export async function renderRankingImage({ title, subtitle, items, footer, longLayout = 'columns' }: ShareImageInput): Promise<HTMLCanvasElement> {
+export async function renderRankingImage({ title, subtitle, items, footer }: ShareImageInput): Promise<HTMLCanvasElement> {
   // Canvas text falls back silently to a system font unless the web font is ready
   if (document.fonts?.load) {
     await Promise.all([600, 700, 800].map(weight => document.fonts.load(font(weight, 40))));
@@ -163,13 +161,10 @@ export async function renderRankingImage({ title, subtitle, items, footer, longL
   const images = await Promise.all(items.map(item => (item.imageUrl ? loadImage(item.imageUrl) : Promise.resolve(null))));
   const hasImages = images.some(Boolean);
 
-  // Long lists: the first five places keep full-width rows, the rest go
-  // into columns of small rows underneath.
   const compact = items.length > MAX_SINGLE_COLUMN;
   const fullWidthCount = compact ? FEATURED : items.length;
   const gridCount = items.length - fullWidthCount;
-  const bands = compact && longLayout === 'bands';
-  const columns = !compact ? 1 : bands ? 2 : Math.max(2, Math.ceil(gridCount / MAX_SINGLE_COLUMN));
+  const columns = compact ? 2 : 1;
   const width = compact ? PAD * 2 + columns * COLUMN_WIDTH + (columns - 1) * COLUMN_GAP : SINGLE_WIDTH;
   const scale = compact ? 1.2 : 1;
 
@@ -197,33 +192,22 @@ export async function renderRankingImage({ title, subtitle, items, footer, longL
   const gridRows = rows.slice(fullWidthCount);
 
   const fullHeight = fullRows.reduce((sum, row) => sum + row.height + ROW_GAP, -ROW_GAP);
-  // Place the small rows. Each group is filled down its columns; with
-  // 'columns' the whole remainder is one group, with 'bands' every ten places
-  // are a group with a label, so the eye never travels far and the picture
-  // ends on the last place.
+  // Split the small rows into bands that end on round numbers
   const GRID_GAP = 36;
   const BAND_LABEL = 44;
   const groups: (typeof rows)[] = [];
-  if (bands) {
-    // Groups end on round numbers: 6-10, 11-20, 21-30...
-    let start = 0;
-    while (start < gridRows.length) {
-      const end = Math.min(gridRows.length, Math.ceil((fullWidthCount + start + 1) / BAND_SIZE) * BAND_SIZE - fullWidthCount);
-      groups.push(gridRows.slice(start, end));
-      start = end;
-    }
-  } else if (gridRows.length) {
-    groups.push(gridRows);
+  for (let start = 0; start < gridRows.length; start += BAND_SIZE) groups.push(gridRows.slice(start, start + BAND_SIZE));
+  if (groups.length > 1 && groups[groups.length - 1].length < MIN_LAST_BAND) {
+    const last = groups.pop()!;
+    groups[groups.length - 1].push(...last);
   }
   const placed: { row: (typeof rows)[number]; x: number; y: number }[] = [];
   const labels: { text: string; y: number }[] = [];
   let gridHeight = 0;
   groups.forEach(group => {
-    gridHeight += bands && labels.length ? 28 : GRID_GAP;
-    if (bands) {
-      labels.push({ text: `${group[0].index + 1}–${group[group.length - 1].index + 1}`, y: gridHeight });
-      gridHeight += BAND_LABEL;
-    }
+    gridHeight += labels.length ? 28 : GRID_GAP;
+    labels.push({ text: `${group[0].index + 1}–${group[group.length - 1].index + 1}`, y: gridHeight });
+    gridHeight += BAND_LABEL;
     const perColumn = Math.ceil(group.length / columns);
     let tallest = 0;
     for (let column = 0; column < columns; column++) {
