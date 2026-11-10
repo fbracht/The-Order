@@ -41,7 +41,7 @@ interface ComparisonScreenProps {
 }
 
 // How many further picks a "stop here?" offer stays on screen
-const OFFER_LIFETIME = 6;
+const OFFER_LIFETIME = 5;
 
 const getIsLandscape = () =>
   typeof window !== 'undefined' && window.matchMedia('(orientation: landscape)').matches;
@@ -369,27 +369,28 @@ export const ComparisonScreen: React.FC<ComparisonScreenProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-black/90 backdrop-blur-md shadow-2xl rounded-[1.75rem] pl-6 pr-3 py-3 pointer-events-auto max-w-lg border border-white/10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
+              className="bg-black/90 backdrop-blur-md shadow-2xl rounded-full pl-6 pr-2 py-2 pointer-events-auto max-w-lg border border-white/10 flex items-center gap-3"
             >
               <span className="text-sm font-bold text-white leading-snug">
                 Your Top {activeOffer.size} is settled.
               </span>
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleStop}
-                  className="rounded-full bg-white px-4 py-2 text-sm font-extrabold text-black hover:bg-gray-200 transition-colors"
-                >
-                  Stop here
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOffer(null)}
-                  className="rounded-full border border-white/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10 transition-colors"
-                >
-                  Keep going
-                </button>
-              </span>
+              <button
+                type="button"
+                onClick={handleStop}
+                className="rounded-full bg-white px-4 py-2 text-sm font-extrabold text-black hover:bg-gray-200 transition-colors"
+              >
+                Stop here
+              </button>
+              <button
+                type="button"
+                onClick={() => setOffer(null)}
+                aria-label="Dismiss"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                  <path d="M1 1l10 10M11 1L1 11" />
+                </svg>
+              </button>
             </motion.div>
           ) : !isFinished && hintKey && hintContent ? (
             <motion.div
