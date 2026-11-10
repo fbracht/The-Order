@@ -58,7 +58,7 @@ Uploaded images are shown through object URLs, which stop working on reload. The
 
 ### Sharing
 
-- **Picture** (`utils/shareImage.ts`): the ranking is drawn directly on a canvas, so it needs no screenshot library and looks the same on every screen. The title and the first three places are drawn larger. Lists over 40 items show the first ten as full-width rows and the rest in bands of ten (11–20, 21–30...), each read down its left half, then its right. A last band of fewer than five joins the one before it.
+- **Picture** (`utils/shareImage.ts`): the ranking is drawn directly on a canvas, so it needs no screenshot library and looks the same on every screen. The title and the first three places are drawn larger. Lists over 40 items show the first ten as full-width rows and the rest two to a line, read left to right. A faint line in the left margin marks each ten, named at its foot ("Top 20", "Top 30"...); a shorter last group keeps the line without a name.
 - **List link** (`utils/shareLink.ts`): the items are compressed into the part of the address after `#`, which browsers never send to a server.
 
 ### Design system (`index.css`)

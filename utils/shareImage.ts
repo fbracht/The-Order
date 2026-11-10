@@ -113,15 +113,10 @@ interface RowStyle {
   maxLines: number;
 }
 
-// A long list (over MAX_SINGLE_COLUMN items) shows its first ten places as
-// full-width rows, exactly like a short list, and the rest as small rows in
-// bands of ten: 11-20, 21-30... Each band is read down its left half, then
-// its right, so the eye never travels far and the picture ends on the last place.
+// Long lists show the first FEATURED places as full-width rows, then the
+// rest as small rows two to a line, marked in the margin every BAND_SIZE.
 const FEATURED = 10;
 const BAND_SIZE = 10;
-// A last band with fewer places than this joins the band before it, so the
-// picture never ends on one or two stray rows.
-const MIN_LAST_BAND = 5;
 
 /**
  * inGrid: the small one-line rows used in the columns of a long list.
@@ -192,34 +187,33 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
   const gridRows = rows.slice(fullWidthCount);
 
   const fullHeight = fullRows.reduce((sum, row) => sum + row.height + ROW_GAP, -ROW_GAP);
-  // Split the small rows into bands that end on round numbers
+  // The small rows read left to right, line by line. Every ten places are five
+  // lines, so each ten starts on the left and gets a mark in the margin. Only
+  // a complete ten is named ("Top 20"); a shorter last one keeps just its line.
   const GRID_GAP = 36;
-  const BAND_LABEL = 44;
-  const groups: (typeof rows)[] = [];
-  for (let start = 0; start < gridRows.length; start += BAND_SIZE) groups.push(gridRows.slice(start, start + BAND_SIZE));
-  if (groups.length > 1 && groups[groups.length - 1].length < MIN_LAST_BAND) {
-    const last = groups.pop()!;
-    groups[groups.length - 1].push(...last);
-  }
   const placed: { row: (typeof rows)[number]; x: number; y: number }[] = [];
-  const labels: { text: string; y: number }[] = [];
+  const edgeMarks: { text: string | null; top: number; bottom: number }[] = [];
   let gridHeight = 0;
-  groups.forEach(group => {
-    gridHeight += labels.length ? 28 : GRID_GAP;
-    labels.push({ text: `${group[0].index + 1}–${group[group.length - 1].index + 1}`, y: gridHeight });
-    gridHeight += BAND_LABEL;
-    const perColumn = Math.ceil(group.length / columns);
-    let tallest = 0;
-    for (let column = 0; column < columns; column++) {
-      let offset = 0;
-      group.slice(column * perColumn, (column + 1) * perColumn).forEach(row => {
-        placed.push({ row, x: PAD + column * (COLUMN_WIDTH + COLUMN_GAP), y: gridHeight + offset });
-        offset += row.height + ROW_GAP;
+  if (gridRows.length) {
+    gridHeight = GRID_GAP;
+    const step = gridRows[0].height + ROW_GAP;
+    gridRows.forEach((row, position) => {
+      placed.push({ row, x: PAD + (position % columns) * (COLUMN_WIDTH + COLUMN_GAP), y: gridHeight + Math.floor(position / columns) * step });
+    });
+    const linesPerTen = BAND_SIZE / columns;
+    const lineCount = Math.ceil(gridRows.length / columns);
+    for (let start = 0; start < gridRows.length; start += BAND_SIZE) {
+      const firstLine = start / columns;
+      const lastLine = Math.min(firstLine + linesPerTen, lineCount) - 1;
+      const complete = start + BAND_SIZE <= gridRows.length;
+      edgeMarks.push({
+        text: complete ? `Top ${gridRows[start + BAND_SIZE - 1].index + 1}` : null,
+        top: gridHeight + firstLine * step,
+        bottom: gridHeight + lastLine * step + gridRows[0].height
       });
-      tallest = Math.max(tallest, offset - ROW_GAP);
     }
-    gridHeight += tallest;
-  });
+    gridHeight += lineCount * step - ROW_GAP;
+  }
 
   const titleLineHeight = Math.round(titleSize * 1.02);
   const subtitleSize = Math.round(24 * scale);
@@ -290,12 +284,26 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
     y += row.height + ROW_GAP;
   });
 
-  // Small rows, with a label above each band
+  // Small rows
   const gridTop = y - ROW_GAP;
-  ctx.fillStyle = '#6B7280';
-  ctx.font = font(700, 20, MONO);
-  labels.forEach(label => ctx.fillText(label.text, PAD + 4, gridTop + label.y + 22));
   placed.forEach(({ row, x, y: offset }) => drawRow(row, x, gridTop + offset));
+
+  // Margin marks: a faint line beside each ten, its name written up the
+  // margin from the bottom of the line.
+  edgeMarks.forEach(mark => {
+    const x = PAD - 22;
+    ctx.fillStyle = 'rgba(255,255,255,0.13)';
+    roundedRect(ctx, x, gridTop + mark.top + 4, 2, mark.bottom - mark.top - 8, 1);
+    ctx.fill();
+    ctx.font = font(700, 17, MONO);
+    if (!mark.text) return;
+    ctx.save();
+    ctx.translate(x - 12, gridTop + mark.bottom - 4);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#6B7280';
+    ctx.fillText(mark.text, 0, 0);
+    ctx.restore();
+  });
 
   // Footer
   const footerY = height - PAD + 4;
