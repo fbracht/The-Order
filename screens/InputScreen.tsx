@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '../components/Button';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { estimateTotalComparisons, estimateTopComparisons, checkpointsFor } from '../utils/rankingEngine';
 import { sanitizeString, MAX_ITEM_LENGTH, MAX_LIST_SIZE } from '../utils/security';
 import { getRandomPreset, PRESETS } from '../utils/presets';
@@ -13,6 +13,9 @@ interface InputScreenProps {
 }
 
 const itemFromText = (label: string): Item => ({ id: label, label });
+
+// Everything that changes with the Text/Images toggle uses this timing
+const SWITCH = { duration: 0.25, ease: 'easeOut' } as const;
 
 const filenameToLabel = (filename: string, fallbackIndex: number): string => {
   const withoutExtension = filename.replace(/\.[^/.]+$/, '');
@@ -176,39 +179,58 @@ export const InputScreen: React.FC<InputScreenProps> = ({
           </h1>
           <p className="text-gray-500 text-lg md:text-xl font-medium max-w-md mx-auto leading-relaxed">
             What do you want to rank today? <br />
-            <span className="text-gray-400 text-base">
-              {listType === 'TEXT' ? 'Enter items, one per line.' : 'Add images, then choose your favorites.'}
-            </span>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={listType}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="inline-block text-gray-400 text-base"
+              >
+                {listType === 'TEXT' ? 'Enter items, one per line.' : 'Add images, then choose your favorites.'}
+              </motion.span>
+            </AnimatePresence>
           </p>
         </header>
 
         <div className="flex-none mx-auto mb-6 inline-flex self-center rounded-full bg-white p-1 shadow-xs border border-gray-100" role="tablist" aria-label="List type">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={listType === 'TEXT'}
-            onClick={() => { setListType('TEXT'); setError(null); }}
-            className={`rounded-full px-5 py-2 text-sm font-extrabold uppercase tracking-wide transition-colors ${listType === 'TEXT' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-black'}`}
-          >
-            Text
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={listType === 'IMAGES'}
-            onClick={() => { setListType('IMAGES'); setError(null); }}
-            className={`rounded-full px-5 py-2 text-sm font-extrabold uppercase tracking-wide transition-colors ${listType === 'IMAGES' ? 'bg-black text-white shadow-md' : 'text-gray-500 hover:text-black'}`}
-          >
-            Images
-          </button>
+          {(['TEXT', 'IMAGES'] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              role="tab"
+              aria-selected={listType === type}
+              onClick={() => { setListType(type); setError(null); }}
+              className={`relative rounded-full px-5 py-2 text-sm font-extrabold uppercase tracking-wide transition-colors duration-300 ${listType === type ? 'text-white' : 'text-gray-500 hover:text-black'}`}
+            >
+              {/* One shared pill that slides between the two tabs */}
+              {listType === type && (
+                <motion.span
+                  layoutId="list-type-pill"
+                  className="absolute inset-0 rounded-full bg-black shadow-md"
+                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                />
+              )}
+              <span className="relative">{type === 'TEXT' ? 'Text' : 'Images'}</span>
+            </button>
+          ))}
         </div>
 
         {/* Input Container */}
         <div className="flex-1 w-full flex flex-col items-center mb-6 md:mb-0 md:max-h-96">
           {/* Children are absolutely positioned so they fill this box at any height */}
           <div className="w-full flex-1 min-h-44 relative group">
+            <AnimatePresence initial={false}>
             {listType === 'TEXT' ? (
-              <>
+              <motion.div
+                key="text"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={SWITCH}
+                className="absolute inset-0"
+              >
                 <textarea
                   value={text}
                   onChange={(e) => {
@@ -230,9 +252,14 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                     Surprise Me
                   </button>
                 )}
-              </>
+              </motion.div>
             ) : (
-              <div
+              <motion.div
+                key="images"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={SWITCH}
                 onDragEnter={(event) => { event.preventDefault(); setIsDragging(true); }}
                 onDragOver={(event) => event.preventDefault()}
                 onDragLeave={(event) => {
@@ -296,28 +323,44 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                     </div>
                   </div>
                 )}
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
 
           {/* Validation Warnings */}
+          <AnimatePresence initial={false}>
           {((listType === 'TEXT' && (hasLongLines || isTooLarge || hasDuplicates)) || error) && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
+              key="warning"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={SWITCH}
+              className="flex-none"
+            >
+            <div
               className="mt-4 text-white text-sm font-bold text-center bg-red-500 px-4 py-2 rounded-full shadow-lg"
             >
               {listType === 'TEXT' && isTooLarge ? `Please limit your list to ${MAX_LIST_SIZE} items.` :
                 listType === 'TEXT' && hasLongLines ? "One or more lines exceed 100 characters." :
                   listType === 'TEXT' && hasDuplicates ? "Duplicate items detected." :
                     error}
+            </div>
             </motion.div>
           )}
+          </AnimatePresence>
         </div>
 
         {/* Footer section: Add margin top on desktop */}
         <div className="flex-none w-full max-w-xs mx-auto md:mt-8">
-          <div className="flex justify-between items-end mb-2 px-1 h-5">
+          <motion.div
+            key={listType}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={SWITCH}
+            className="flex justify-between items-end mb-2 px-1 h-5"
+          >
             <span className={`text-xs font-medium tracking-wide uppercase ${listType === 'TEXT' && (isTooLarge || hasLongLines || hasDuplicates) ? 'text-red-500' : 'text-gray-400'}`}>
               {itemCount} {itemCount === 1 ? (listType === 'TEXT' ? 'Item' : 'Image') : (listType === 'TEXT' ? 'Items' : 'Images')}
               {listType === 'TEXT' && (isTooLarge || hasLongLines || hasDuplicates) && <span className="ml-1">⚠️</span>}
@@ -330,7 +373,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
                 {timeText}
               </span>
             )}
-          </div>
+          </motion.div>
 
           <Button
             onClick={handleStart}
@@ -341,12 +384,23 @@ export const InputScreen: React.FC<InputScreenProps> = ({
             Begin Ranking
           </Button>
 
-          {offersTopN && (
-            <p className="mt-3 text-center text-xs font-medium leading-relaxed text-gray-500">
-              About {topTenQuestions} questions for a Top 10, or {roundQuestions(estimatedComparisons)} to rank everything.
-              You can stop once the top is settled.
-            </p>
-          )}
+          <AnimatePresence initial={false}>
+            {offersTopN && (
+              <motion.div
+                key="top-n"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={SWITCH}
+                className="overflow-hidden"
+              >
+                <p className="pt-3 text-center text-xs font-medium leading-relaxed text-gray-500">
+                  About {topTenQuestions} questions for a Top 10, or {roundQuestions(estimatedComparisons)} to rank everything.
+                  You can stop once the top is settled.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>

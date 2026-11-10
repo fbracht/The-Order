@@ -14,7 +14,7 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   // Base button Reset
-  const baseButtonStyles = "inline-flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed group relative bg-transparent border-0 p-0";
+  const baseButtonStyles = "inline-flex items-center justify-center transition-all duration-200 rounded-3xl outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed group relative bg-transparent border-0 p-0";
 
   // Content styling (Typography, Padding)
   // Note: Padding is applied inside the squircle container
