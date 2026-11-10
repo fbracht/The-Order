@@ -21,12 +21,41 @@ const fromBase64Url = (text: string): Uint8Array => {
   return Uint8Array.from(binary, char => char.charCodeAt(0));
 };
 
+// The largest list the app accepts, in bytes of text (up to 4 bytes per character)
+const MAX_TEXT_BYTES = MAX_LIST_SIZE * (MAX_ITEM_LENGTH * 4 + 1);
+
+/**
+ * Runs bytes through a compression or decompression stream. The output is
+ * read in pieces and abandoned as soon as it passes MAX_TEXT_BYTES, so a
+ * crafted link that expands to a huge amount of data cannot freeze the page.
+ */
 async function pipe(bytes: Uint8Array, stream: TransformStream<Uint8Array, Uint8Array>): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
   // Damaged input makes these fail too; the failure is reported once, by the read below
   writer.write(bytes).catch(() => {});
   writer.close().catch(() => {});
-  return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+
+  const reader = stream.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > MAX_TEXT_BYTES) {
+      await reader.cancel().catch(() => {});
+      throw new Error('List is too large');
+    }
+    chunks.push(value);
+  }
+
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
 }
 
 /** The address of this app, wherever it is hosted. */
@@ -48,6 +77,9 @@ export async function encodeListLink(labels: string[]): Promise<string> {
 export async function decodeListHash(hash: string): Promise<string[] | null> {
   const match = hash.match(new RegExp(`[#&]${PARAM}=(v[01])\\.([A-Za-z0-9_-]+)`));
   if (!match) return null;
+
+  // Base64 is 4 characters per 3 bytes; anything longer cannot be a valid list
+  if (match[2].length > Math.ceil(MAX_TEXT_BYTES / 3) * 4) return null;
 
   try {
     let bytes = fromBase64Url(match[2]);

@@ -36,6 +36,24 @@ describe('list links', () => {
     const link = await encodeListLink(list);
     expect(await decodeListHash(link.slice(link.indexOf('#')))).toEqual(list);
   });
+  it('refuses a link that expands to far more than a full list', async () => {
+    // 20 MB of the same character compresses to a few kilobytes
+    const stream = new CompressionStream('deflate-raw');
+    const writer = stream.writable.getWriter();
+    writer.write(new Uint8Array(20_000_000).fill(97));
+    writer.close();
+    const packed = new Uint8Array(await new Response(stream.readable).arrayBuffer());
+    let binary = '';
+    packed.forEach(byte => { binary += String.fromCharCode(byte); });
+    const payload = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    expect(payload.length).toBeLessThan(40_000);
+    expect(await decodeListHash(`#list=v1.${payload}`)).toBeNull();
+  });
+  it('still accepts the largest list the app allows', async () => {
+    const list = Array.from({ length: 250 }, (_, i) => `${String(i).padStart(3, '0')} ${'é'.repeat(96)}`);
+    const link = await encodeListLink(list);
+    expect(await decodeListHash(link.slice(link.indexOf('#')))).toEqual(list);
+  });
   it('rejects damaged or missing links', async () => {
     expect(await decodeListHash('')).toBeNull();
     expect(await decodeListHash('#list=v1.not-a-real-list')).toBeNull();
