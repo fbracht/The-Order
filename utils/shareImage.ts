@@ -104,24 +104,47 @@ interface RowStyle {
   labelColor: string;
   rankSize: number;
   rankColor: string;
+  rankWidth: number;
+  padX: number;
   padY: number;
   thumb: number;
+  radius: number;
   background: string;
   maxLines: number;
 }
 
-function rowStyle(index: number, compact: boolean): RowStyle {
+// The first places are drawn larger, stepping down: 1st, then 2nd and 3rd,
+// then 4th and 5th, then everything else.
+const FEATURED = 5;
+
+/**
+ * inGrid: the small one-line rows used in the columns of a long list.
+ * scale: enlarges the full-width rows on the wider canvas of a long list.
+ */
+function rowStyle(index: number, inGrid: boolean, scale: number): RowStyle {
   const rankColor = RANK_COLORS[index] ?? '#9CA3AF';
-  if (compact) {
-    return { labelSize: 26, labelWeight: 600, labelColor: index < 3 ? '#FFFFFF' : '#D1D5DB', rankSize: 20, rankColor, padY: 16, thumb: 40, background: 'rgba(255,255,255,0.06)', maxLines: 1 };
+  const quiet = 'rgba(255,255,255,0.06)';
+  if (inGrid) {
+    return { labelSize: 26, labelWeight: 600, labelColor: '#D1D5DB', rankSize: 20, rankColor, rankWidth: 52, padX: 20, padY: 16, thumb: 40, radius: 18, background: quiet, maxLines: 1 };
   }
-  if (index === 0) {
-    return { labelSize: 46, labelWeight: 800, labelColor: '#FFFFFF', rankSize: 30, rankColor, padY: 36, thumb: 150, background: 'rgba(255,255,255,0.12)', maxLines: 3 };
-  }
-  if (index < 3) {
-    return { labelSize: 38, labelWeight: 700, labelColor: '#FFFFFF', rankSize: 24, rankColor, padY: 30, thumb: 104, background: 'rgba(255,255,255,0.06)', maxLines: 3 };
-  }
-  return { labelSize: 32, labelWeight: 600, labelColor: '#D1D5DB', rankSize: 24, rankColor, padY: 24, thumb: 72, background: 'rgba(255,255,255,0.06)', maxLines: 3 };
+  const tier =
+    index === 0 ? { labelSize: 60, labelWeight: 800, labelColor: '#FFFFFF', rankSize: 34, padY: 42, thumb: 168, background: 'rgba(255,255,255,0.14)' }
+    : index < 3 ? { labelSize: 46, labelWeight: 700, labelColor: '#FFFFFF', rankSize: 28, padY: 32, thumb: 116, background: 'rgba(255,255,255,0.09)' }
+    : index < FEATURED ? { labelSize: 37, labelWeight: 700, labelColor: '#F3F4F6', rankSize: 24, padY: 26, thumb: 84, background: quiet }
+    : { labelSize: 29, labelWeight: 600, labelColor: '#D1D5DB', rankSize: 22, padY: 20, thumb: 64, background: quiet };
+  const px = (value: number) => Math.round(value * scale);
+  return {
+    ...tier,
+    labelSize: px(tier.labelSize),
+    rankSize: px(tier.rankSize),
+    padY: px(tier.padY),
+    thumb: px(tier.thumb),
+    rankColor,
+    rankWidth: px(76),
+    padX: px(32),
+    radius: px(28),
+    maxLines: 3
+  };
 }
 
 export async function renderRankingImage({ title, subtitle, items, footer }: ShareImageInput): Promise<HTMLCanvasElement> {
@@ -132,41 +155,51 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
   const images = await Promise.all(items.map(item => (item.imageUrl ? loadImage(item.imageUrl) : Promise.resolve(null))));
   const hasImages = images.some(Boolean);
 
+  // Long lists: the first five places keep full-width rows, the rest go
+  // into columns of small rows underneath.
   const compact = items.length > MAX_SINGLE_COLUMN;
-  const columns = compact ? Math.ceil(items.length / MAX_SINGLE_COLUMN) : 1;
-  const perColumn = Math.ceil(items.length / columns);
+  const fullWidthCount = compact ? FEATURED : items.length;
+  const gridCount = items.length - fullWidthCount;
+  const columns = compact ? Math.max(2, Math.ceil(gridCount / MAX_SINGLE_COLUMN)) : 1;
+  const perColumn = Math.ceil(gridCount / columns);
   const width = compact ? PAD * 2 + columns * COLUMN_WIDTH + (columns - 1) * COLUMN_GAP : SINGLE_WIDTH;
-  const columnWidth = compact ? COLUMN_WIDTH : width - PAD * 2;
+  const scale = compact ? 1.2 : 1;
 
   // Text can only be measured with a canvas, so lay everything out first on a
   // scratch one, then size the real canvas to fit.
   const measure = document.createElement('canvas').getContext('2d')!;
 
-  const titleSize = 76;
+  const titleSize = Math.round(112 * scale);
   measure.font = font(800, titleSize);
   const titleLines = wrapText(measure, title, width - PAD * 2, 3);
 
-  const rankWidth = compact ? 52 : 68;
-  const rowPadX = compact ? 20 : 30;
   const rows = items.map((item, index) => {
-    const style = rowStyle(index, compact);
+    const inGrid = index >= fullWidthCount;
+    const style = rowStyle(index, inGrid, scale);
+    const rowWidth = inGrid ? COLUMN_WIDTH : width - PAD * 2;
     const thumb = hasImages ? style.thumb : 0;
-    const textWidth = columnWidth - rowPadX * 2 - rankWidth - (thumb ? thumb + 20 : 0);
+    const textWidth = rowWidth - style.padX * 2 - style.rankWidth - (thumb ? thumb + 20 : 0);
     measure.font = font(style.labelWeight, style.labelSize);
     const lines = wrapText(measure, item.label, textWidth, style.maxLines);
     const lineHeight = Math.round(style.labelSize * 1.2);
     const height = Math.max(lines.length * lineHeight, thumb) + style.padY * 2;
-    return { item, index, style, thumb, lines, lineHeight, height };
+    return { item, index, style, thumb, lines, lineHeight, height, rowWidth };
   });
+  const fullRows = rows.slice(0, fullWidthCount);
+  const gridRows = rows.slice(fullWidthCount);
 
-  const columnHeights = Array.from({ length: columns }, (_, column) =>
-    rows.slice(column * perColumn, (column + 1) * perColumn).reduce((sum, row) => sum + row.height + ROW_GAP, -ROW_GAP)
-  );
+  const stackHeight = (stack: typeof rows) => stack.reduce((sum, row) => sum + row.height + ROW_GAP, -ROW_GAP);
+  const fullHeight = stackHeight(fullRows);
+  const GRID_GAP = 36;
+  const gridHeight = gridRows.length
+    ? GRID_GAP + Math.max(...Array.from({ length: columns }, (_, column) => stackHeight(gridRows.slice(column * perColumn, (column + 1) * perColumn))))
+    : 0;
 
-  const titleLineHeight = Math.round(titleSize * 1.05);
-  const headerHeight = titleLines.length * titleLineHeight + 20 + 26 + 44;
+  const titleLineHeight = Math.round(titleSize * 1.02);
+  const subtitleSize = Math.round(24 * scale);
+  const headerHeight = titleLines.length * titleLineHeight + 24 + subtitleSize + 48;
   const footerHeight = 96;
-  const height = PAD + headerHeight + 44 + Math.max(...columnHeights) + footerHeight + PAD - 24;
+  const height = PAD + headerHeight + 44 + fullHeight + gridHeight + footerHeight + PAD - 24;
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -182,45 +215,39 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
   let y = PAD;
   ctx.fillStyle = '#FFFFFF';
   ctx.font = font(800, titleSize);
-  spacing('-1.5px');
+  spacing(`${-titleSize * 0.025}px`);
   titleLines.forEach(line => {
     y += titleLineHeight;
-    ctx.fillText(line, PAD, y - titleLineHeight * 0.22);
+    ctx.fillText(line, PAD, y - titleLineHeight * 0.2);
   });
-  y += 20;
+  y += 24;
   ctx.fillStyle = '#9CA3AF';
-  ctx.font = font(700, 22);
+  ctx.font = font(700, subtitleSize);
   spacing('2.5px');
-  ctx.fillText(subtitle.toUpperCase(), PAD, y + 22);
+  ctx.fillText(subtitle.toUpperCase(), PAD, y + subtitleSize);
   spacing('0px');
-  y += 26 + 44;
+  y += subtitleSize + 48;
   ctx.fillStyle = 'rgba(255,255,255,0.12)';
   ctx.fillRect(PAD, y, width - PAD * 2, 2);
   y += 44;
 
-  // Rows
-  const top = y;
-  rows.forEach((row, position) => {
-    const column = Math.floor(position / perColumn);
-    if (position % perColumn === 0) y = top;
-    const x = PAD + column * (columnWidth + COLUMN_GAP);
+  const drawRow = (row: (typeof rows)[number], x: number, top: number) => {
     const { style } = row;
-
     ctx.fillStyle = style.background;
-    roundedRect(ctx, x, y, columnWidth, row.height, compact ? 18 : 28);
+    roundedRect(ctx, x, top, row.rowWidth, row.height, style.radius);
     ctx.fill();
 
     const textBlockHeight = row.lines.length * row.lineHeight;
-    const firstBaseline = y + (row.height - textBlockHeight) / 2 + row.lineHeight * 0.78;
+    const firstBaseline = top + (row.height - textBlockHeight) / 2 + row.lineHeight * 0.78;
 
     ctx.fillStyle = style.rankColor;
     ctx.font = font(700, style.rankSize, MONO);
-    ctx.fillText(String(row.index + 1).padStart(2, '0'), x + rowPadX, firstBaseline);
+    ctx.fillText(String(row.index + 1).padStart(2, '0'), x + style.padX, firstBaseline);
 
-    let textX = x + rowPadX + rankWidth;
+    let textX = x + style.padX + style.rankWidth;
     const image = images[row.index];
     if (row.thumb) {
-      if (image) drawThumb(ctx, image, textX, y + (row.height - row.thumb) / 2, row.thumb, compact ? 8 : 16);
+      if (image) drawThumb(ctx, image, textX, top + (row.height - row.thumb) / 2, row.thumb, Math.round(style.radius * 0.55));
       textX += row.thumb + 20;
     }
 
@@ -229,7 +256,19 @@ export async function renderRankingImage({ title, subtitle, items, footer }: Sha
     spacing('-0.5px');
     row.lines.forEach((line, lineIndex) => ctx.fillText(line, textX, firstBaseline + lineIndex * row.lineHeight));
     spacing('0px');
+  };
 
+  // Full-width rows
+  fullRows.forEach(row => {
+    drawRow(row, PAD, y);
+    y += row.height + ROW_GAP;
+  });
+
+  // Columns of small rows
+  const gridTop = y - ROW_GAP + GRID_GAP;
+  gridRows.forEach((row, position) => {
+    if (position % perColumn === 0) y = gridTop;
+    drawRow(row, PAD + Math.floor(position / perColumn) * (COLUMN_WIDTH + COLUMN_GAP), y);
     y += row.height + ROW_GAP;
   });
 
