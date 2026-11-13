@@ -34,7 +34,7 @@ describe('list links', () => {
   it('round-trips a list, including accents and emoji', async () => {
     const list = ['Pão de queijo', 'Brigadeiro 🍫', 'Açaí', 'Coxinha, the best'];
     const link = await encodeListLink(list);
-    expect(await decodeListHash(link.slice(link.indexOf('#')))).toEqual(list);
+    expect(await decodeListHash(link.slice(link.indexOf('#')))).toEqual({ labels: list, ranking: list });
   });
   it('refuses a link that expands to far more than a full list', async () => {
     // 20 MB of the same character compresses to a few kilobytes
@@ -52,7 +52,7 @@ describe('list links', () => {
   it('still accepts the largest list the app allows', async () => {
     const list = Array.from({ length: 250 }, (_, i) => `${String(i).padStart(3, '0')} ${'é'.repeat(96)}`);
     const link = await encodeListLink(list);
-    expect(await decodeListHash(link.slice(link.indexOf('#')))).toEqual(list);
+    expect(await decodeListHash(link.slice(link.indexOf('#')))).toEqual({ labels: list, ranking: list });
   });
   it('rejects damaged or missing links', async () => {
     expect(await decodeListHash('')).toBeNull();

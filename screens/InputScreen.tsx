@@ -13,6 +13,8 @@ interface InputScreenProps {
   initialListType?: ListType;
   /** The list arrived through a shared link. */
   isSharedList?: boolean;
+  /** The shared list came with the sender's ranking, to compare at the end. */
+  sharedWithRanking?: boolean;
 }
 
 const itemFromText = (label: string): Item => ({ id: label, label });
@@ -29,7 +31,8 @@ export const InputScreen: React.FC<InputScreenProps> = ({
   onStart,
   initialItems = [],
   initialListType = 'TEXT',
-  isSharedList = false
+  isSharedList = false,
+  sharedWithRanking = false
 }) => {
   const [listType, setListType] = useState<ListType>(initialListType);
   const [text, setText] = useState(initialItems.filter(item => !item.imageUrl).map(item => item.label).join('\n'));
@@ -259,7 +262,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
         </div>
 
         {/* What to put in the box below; changes with the toggle above it */}
-        <p className="flex-none h-6 mb-3 text-center text-muted text-base font-medium leading-6">
+        <p className="flex-none min-h-6 mb-3 text-center text-muted text-base font-medium leading-6">
           <AnimatePresence mode="wait" initial={false}>
             <motion.span
               key={isSharedList && listType === 'TEXT' ? 'SHARED' : listType}
@@ -270,7 +273,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
               className="inline-block"
             >
               {isSharedList && listType === 'TEXT'
-                ? 'Someone shared this list with you. Edit it, or begin.'
+                ? (sharedWithRanking ? 'A friend ranked this list. Rank it to compare.' : 'Someone shared this list with you. Edit it, or begin.')
                 : listType === 'TEXT' ? 'Enter items, one per line.' : 'Add the images you want to rank.'}
             </motion.span>
           </AnimatePresence>

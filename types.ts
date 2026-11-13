@@ -20,6 +20,11 @@ export interface RankingState {
   finalItems?: Item[];
   /** The user's own name for the ranking; unset means the default title. */
   title?: string;
+  /**
+   * A friend's order for this list (labels, best first), from the link the
+   * list arrived in. Shown next to the user's own result.
+   */
+  theirRanking?: string[];
   /** When the ranking was finished (milliseconds since 1970). */
   finishedAt?: number;
 }

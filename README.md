@@ -59,7 +59,7 @@ Uploaded images are shown through object URLs, which stop working on reload. The
 ### Sharing
 
 - **Picture** (`utils/shareImage.ts`): the ranking is drawn directly on a canvas, so it needs no screenshot library and looks the same on every screen. The title and the first three places are drawn larger. Lists over 40 items show the first ten as full-width rows and the rest two to a line, read left to right. A faint line in the left margin marks each ten, named at its foot ("Top 20", "Top 30"...); a shorter last group keeps the line without a name.
-- **List link** (`utils/shareLink.ts`): the items are compressed into the part of the address after `#`, which browsers never send to a server.
+- **List link** (`utils/shareLink.ts`): the items are compressed into the part of the address after `#`, which browsers never send to a server. The link also carries the sender's ranking. Whoever opens it sees the list in alphabetical order, ranks it, and then sees the sender's place next to each item, with how often the two agree (`utils/compare.ts`). Text lists only.
 
 ### Design system (`index.css`)
 

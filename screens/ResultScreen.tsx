@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Item } from '../types';
 import { Button } from '../components/Button';
 import { SquircleContainer } from '../components/SquircleContainer';
@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { sanitizeString, MAX_TITLE_LENGTH } from '../utils/security';
 import { renderRankingImage, canvasToPng, imageFileName } from '../utils/shareImage';
 import { encodeListLink, siteUrl } from '../utils/shareLink';
+import { compareRankings, compareKey } from '../utils/compare';
 
 interface ResultScreenProps {
   items: Item[]; // Assumed sorted. Shorter than totalCount for a Top N.
@@ -15,6 +16,8 @@ interface ResultScreenProps {
   /** The user's own title, if they set one. */
   title?: string;
   finishedAt?: number;
+  /** A friend's order for this list (labels, best first), when it came from their link. */
+  theirRanking?: string[];
   onTitleChange: (title: string | undefined) => void;
   onContinue: () => void;
   onReset: () => void;
@@ -28,7 +31,7 @@ const CheckMark = () => (
 );
 
 export const ResultScreen: React.FC<ResultScreenProps> = ({
-  items, allItems, totalCount, title: customTitle, finishedAt, onTitleChange, onContinue, onReset, onRestart
+  items, allItems, totalCount, title: customTitle, finishedAt, theirRanking, onTitleChange, onContinue, onReset, onRestart
 }) => {
   // A Top N: the user stopped before every item was placed
   const isPartial = items.length < totalCount;
@@ -38,6 +41,15 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const isImageRanking = items.some(item => item.imageUrl);
+
+  // How this ranking compares with the friend's, when there is enough in common
+  const comparison = useMemo(() => {
+    if (!theirRanking || isImageRanking) return null;
+    const result = compareRankings(items.map(item => item.label), theirRanking);
+    return result.agreement === null ? null : result;
+  }, [items, theirRanking, isImageRanking]);
+  const place = (value: number) => value.toString().padStart(2, '0');
+  const theirPlaceOfMyFirst = comparison && items[0] ? comparison.theirPlace.get(compareKey(items[0].label)) : undefined;
 
   // Which button last succeeded, for its brief "done" label, and any failure to report
   const [done, setDone] = useState<'text' | 'link' | 'image' | null>(null);
@@ -97,7 +109,11 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
   };
 
   const handleCopyLink = async () => {
-    copy(await encodeListLink(allItems.map(item => item.label)), 'link');
+    // The link carries this ranking, best first, then anything left unranked
+    const rankedIds = new Set(items.map(item => item.id));
+    const ranked = items.map(item => item.label);
+    const rest = allItems.filter(item => !rankedIds.has(item.id)).map(item => item.label);
+    copy(await encodeListLink(ranked, rest), 'link');
   };
 
   // --- Picture of the ranking ---
@@ -293,6 +309,33 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                 )}
               </div>
             ) : (
+              <>
+              {comparison && (
+                <section aria-label="Compared with your friend" className="relative z-10 -mt-4 mb-6">
+                  <p className="text-white">
+                    <span className="text-5xl font-extrabold tracking-tight">{Math.round(comparison.agreement! * 100)}%</span>
+                    <span className="ml-3 text-base font-semibold text-gray-300">the same as your friend</span>
+                  </p>
+                  <p className="mt-2 text-sm font-medium leading-relaxed text-gray-400">
+                    Of every two items, that is how often you both put the same one first.{' '}
+                    {comparison.sameTop
+                      ? 'You agree on first place.'
+                      : theirPlaceOfMyFirst
+                        ? `Your first place is their number ${theirPlaceOfMyFirst}.`
+                        : 'Your friend did not rank your first place.'}
+                    {comparison.biggestGap && (
+                      <> Biggest gap: {comparison.biggestGap.label} (you {place(comparison.biggestGap.mine)}, friend {place(comparison.biggestGap.theirs)}).</>
+                    )}
+                    {comparison.common < items.length && (
+                      <> Compared on the {comparison.common} items you both ranked.</>
+                    )}
+                  </p>
+                  <div className="mt-5 flex justify-between px-6 text-[0.6875rem] font-bold uppercase tracking-widest text-gray-500">
+                    <span>You</span>
+                    <span>Friend’s place</span>
+                  </div>
+                </section>
+              )}
               <ol className="list-none relative z-10 space-y-2">
                 {items.map((item, index) => {
                   const isFirst = index === 0;
@@ -342,13 +385,28 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
                         <span className={`min-w-0 flex-1 ${textSize} ${fontWeight} leading-snug tracking-tight ${textColor} break-words`}>
                           {item.label}
                         </span>
+                        {comparison && (() => {
+                          const theirs = comparison.theirPlace.get(compareKey(item.label));
+                          const mine = index + 1;
+                          return (
+                            <span
+                              className={`ml-3 flex-none whitespace-nowrap font-mono text-sm font-bold ${theirs === mine ? 'text-gray-500' : 'text-gray-300'}`}
+                              aria-label={theirs ? `Your friend's place: ${theirs}` : 'Your friend did not rank this'}
+                            >
+                              {theirs && theirs !== mine && (
+                                <span aria-hidden="true" className="mr-1.5 text-xs text-gray-500">{theirs < mine ? '▲' : '▼'}</span>
+                              )}
+                              {theirs ? place(theirs) : '–'}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </motion.li>
                   );
                 })}
               </ol>
+              </>
             )}
-
 
           </div>
         </SquircleContainer>
@@ -386,7 +444,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
             {done === 'text' ? <span className="flex items-center gap-2"><CheckMark /> Copied</span> : 'Copy text'}
           </Button>
           {!isImageRanking && (
-            <Button onClick={handleCopyLink} variant="secondary" title="Copy a link that opens this list, so someone else can rank it">
+            <Button onClick={handleCopyLink} variant="secondary" title="Copy a link that lets someone else rank this list and compare with you">
               {done === 'link' ? <span className="flex items-center gap-2"><CheckMark /> Copied</span> : 'Copy list link'}
             </Button>
           )}
@@ -403,7 +461,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         </p>
         {!isImageRanking && (
           <p className="text-center text-xs font-medium leading-relaxed text-muted">
-            The list link opens this list, unranked, so a friend can rank it too.
+            The list link lets a friend rank this list. When they finish, they see how their order compares with yours.
           </p>
         )}
       </motion.div>

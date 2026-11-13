@@ -7,6 +7,7 @@ import { Navbar } from './components/Navbar';
 import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { decodeListHash } from './utils/shareLink';
 import { saveImages, loadImageUrls, clearImages } from './utils/imageStore';
+import { compareKey } from './utils/compare';
 
 const STORAGE_KEY = 'the_order_state_v1';
 
@@ -53,7 +54,10 @@ function restoreState(): RankingState {
     edges,
     finalItems: itemsOrUndefined(parsed.finalItems),
     title: typeof parsed.title === 'string' ? parsed.title : undefined,
-    finishedAt: typeof parsed.finishedAt === 'number' ? parsed.finishedAt : undefined
+    finishedAt: typeof parsed.finishedAt === 'number' ? parsed.finishedAt : undefined,
+    theirRanking: Array.isArray(parsed.theirRanking) && parsed.theirRanking.every((label: unknown) => typeof label === 'string')
+      ? parsed.theirRanking
+      : undefined
   };
 }
 
@@ -71,6 +75,12 @@ function shuffle<T>(array: T[]): T[] {
 
 const sameItems = (a: Item[] | undefined, b: Item[]) =>
   !!a && a.length === b.length && new Set(a.map(item => item.id)).size === new Set([...a, ...b].map(item => item.id)).size;
+
+const sharesItems = (theirRanking: string[] | undefined, items: Item[]) => {
+  if (!theirRanking) return false;
+  const theirs = new Set(theirRanking.map(compareKey));
+  return items.filter(item => theirs.has(compareKey(item.label))).length >= 2;
+};
 
 function App() {
   const [state, setState] = useState<RankingState>(() => restoreState());
@@ -100,8 +110,11 @@ function App() {
       if (cancelled) return;
 
       if (shared) {
-        const items = shared.map(label => ({ id: label, label }));
-        setState({ ...INITIAL_STATE, items, inputItems: items });
+        // A list that comes with a ranking arrives in ranked order. It is shown
+        // alphabetically, so the friend's order stays unknown until the end.
+        const labels = shared.ranking ? [...shared.labels].sort((a, b) => a.localeCompare(b)) : shared.labels;
+        const items = labels.map(label => ({ id: label, label }));
+        setState({ ...INITIAL_STATE, items, inputItems: items, theirRanking: shared.ranking });
         setIsSharedList(true);
         setInputVersion(version => version + 1);
       } else {
@@ -210,7 +223,9 @@ function App() {
       edges: [],
       finalItems: undefined,
       // A custom title survives edits to the same list, not a different list
-      title: sameItems(prev.inputItems, items) ? prev.title : undefined
+      title: sameItems(prev.inputItems, items) ? prev.title : undefined,
+      // A friend's ranking stays for as long as the list still shares items with it
+      theirRanking: listType === 'TEXT' && sharesItems(prev.theirRanking, items) ? prev.theirRanking : undefined
     }));
   };
 
@@ -312,6 +327,7 @@ function App() {
                 initialItems={state.inputItems ?? state.items}
                 initialListType={state.listType}
                 isSharedList={isSharedList}
+                sharedWithRanking={!!state.theirRanking}
               />
             )}
 
@@ -334,6 +350,7 @@ function App() {
                 totalCount={state.items.length}
                 title={state.title}
                 finishedAt={state.finishedAt}
+                theirRanking={state.theirRanking}
                 onTitleChange={handleTitleChange}
                 onContinue={handleContinue}
                 onReset={handleReset}
