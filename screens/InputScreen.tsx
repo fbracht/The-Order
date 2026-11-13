@@ -216,34 +216,20 @@ export const InputScreen: React.FC<InputScreenProps> = ({
         grow into spare height. Top padding clears the floating navbar; it is
         tighter on short viewports such as a phone held sideways.
       */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col min-h-full pt-28 pb-8 px-4 sm:px-6 md:justify-center [@media(max-height:500px)]:pt-24">
+      <div className="w-full max-w-2xl mx-auto flex flex-col min-h-full pt-28 pb-3 [@media(max-height:820px)]:pb-0 px-4 sm:px-6 md:justify-center [@media(max-height:500px)]:pt-24">
 
         {/* Header */}
-        <header className="flex-none mb-5 md:mb-10 text-center">
+        <header className="flex-none mb-5 md:mb-8 [@media(max-height:820px)]:md:mb-4 text-center">
           <h1 className="text-5xl md:text-7xl [@media(max-height:820px)]:md:text-6xl font-extrabold tracking-tight text-ink mb-4 md:mb-6 uppercase">
             Create<br />List
           </h1>
           <p className="text-muted text-lg md:text-xl font-medium max-w-md mx-auto leading-snug md:leading-relaxed">
             Pick between two at a time. <br className="hidden sm:inline" />
-            We'll work out the full order. <br />
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={listType}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
-                className="inline-block text-muted text-base mt-1"
-              >
-                {isSharedList && listType === 'TEXT'
-                  ? 'Someone shared this list with you. Edit it, or begin.'
-                  : listType === 'TEXT' ? 'Enter items, one per line.' : 'Add the images you want to rank.'}
-              </motion.span>
-            </AnimatePresence>
+            We'll work out the full order.
           </p>
         </header>
 
-        <div className="flex-none mx-auto mb-5 md:mb-6 inline-flex self-center rounded-full bg-surface p-1 shadow-low border border-line" role="tablist" aria-label="List type">
+        <div className="flex-none mx-auto mb-3 inline-flex self-center rounded-full bg-surface p-1 shadow-low border border-line" role="tablist" aria-label="List type">
           {(['TEXT', 'IMAGES'] as const).map((type) => (
             <button
               key={type}
@@ -265,6 +251,24 @@ export const InputScreen: React.FC<InputScreenProps> = ({
             </button>
           ))}
         </div>
+
+        {/* What to put in the box below; changes with the toggle above it */}
+        <p className="flex-none h-6 mb-3 text-center text-muted text-base font-medium leading-6">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={isSharedList && listType === 'TEXT' ? 'SHARED' : listType}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+              className="inline-block"
+            >
+              {isSharedList && listType === 'TEXT'
+                ? 'Someone shared this list with you. Edit it, or begin.'
+                : listType === 'TEXT' ? 'Enter items, one per line.' : 'Add the images you want to rank.'}
+            </motion.span>
+          </AnimatePresence>
+        </p>
 
         {/* Input Container */}
         <div className="flex-1 w-full flex flex-col items-center mb-6 md:mb-0 md:max-h-96">
@@ -407,7 +411,7 @@ export const InputScreen: React.FC<InputScreenProps> = ({
         </div>
 
         {/* Footer section: Add margin top on desktop */}
-        <div className="flex-none w-full max-w-xs mx-auto md:mt-8">
+        <div className="flex-none w-full max-w-xs mx-auto md:mt-8 [@media(max-height:820px)]:md:mt-4">
           <motion.div
             key={listType}
             initial={{ opacity: 0 }}
@@ -437,23 +441,25 @@ export const InputScreen: React.FC<InputScreenProps> = ({
             Begin Ranking
           </Button>
 
-          <AnimatePresence initial={false}>
-            {offersTopN && (
-              <motion.div
-                key="top-n"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={SWITCH}
-                className="overflow-hidden"
-              >
-                <p className="pt-3 text-center text-xs font-medium leading-relaxed text-muted">
+          {/* The space for this note is always kept, so it can come and go
+              without moving the rest of the screen. */}
+          <div className="min-h-[3.25rem]">
+            <AnimatePresence initial={false}>
+              {offersTopN && (
+                <motion.p
+                  key="top-n"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={SWITCH}
+                  className="pt-3 text-center text-xs font-medium leading-relaxed text-muted"
+                >
                   About {topTenQuestions} questions for a Top 10, or {roundQuestions(estimatedComparisons)} to rank everything.
                   You can stop once the top is settled.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </motion.div>
