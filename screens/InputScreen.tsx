@@ -201,6 +201,12 @@ export const InputScreen: React.FC<InputScreenProps> = ({
   const roundQuestions = (count: number) => (count >= 100 ? Math.round(count / 10) * 10 : Math.round(count / 5) * 5);
   const offersTopN = isValid && checkpointsFor(itemCount).includes(10);
   const topTenQuestions = offersTopN ? roundQuestions(estimateTopComparisons(itemCount, 10)) : 0;
+  // The last wording is kept while the note fades out, so its numbers do not
+  // change on the way.
+  const topNNote = useRef('');
+  if (offersTopN) {
+    topNNote.current = `About ${topTenQuestions} questions for a Top 10, or ${roundQuestions(estimatedComparisons)} to rank everything. You can stop once the top is settled.`;
+  }
 
   return (
     <motion.div
@@ -442,24 +448,14 @@ export const InputScreen: React.FC<InputScreenProps> = ({
           </Button>
 
           {/* The space for this note is always kept, so it can come and go
-              without moving the rest of the screen. */}
-          <div className="min-h-[3.25rem]">
-            <AnimatePresence initial={false}>
-              {offersTopN && (
-                <motion.p
-                  key="top-n"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={SWITCH}
-                  className="pt-3 text-center text-xs font-medium leading-relaxed text-muted"
-                >
-                  About {topTenQuestions} questions for a Top 10, or {roundQuestions(estimatedComparisons)} to rank everything.
-                  You can stop once the top is settled.
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </div>
+              without moving the rest of the screen. It is a plain CSS fade:
+              the note stays in the page and only its opacity changes. */}
+          <p
+            aria-hidden={!offersTopN}
+            className={`min-h-[3.25rem] pt-3 text-center text-xs font-medium leading-relaxed text-muted transition-opacity duration-200 ease-out ${offersTopN ? 'opacity-100' : 'opacity-0'}`}
+          >
+            {topNNote.current}
+          </p>
         </div>
       </div>
     </motion.div>
